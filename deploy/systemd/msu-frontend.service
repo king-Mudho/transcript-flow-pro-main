@@ -1,0 +1,39 @@
+# TanStack Start SSR server (Node).
+# Install to: /etc/systemd/system/msu-frontend.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now msu-frontend
+#
+# Serves the output of `npm run build:server`, which produces a self-listening
+# Node server at .output/server/index.mjs. The plain `npm run build` output is
+# NOT runnable this way — it is a fetch handler with no listener.
+
+[Unit]
+Description=MSU Transcript Collection - Frontend SSR (Node)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=msu
+Group=msu
+WorkingDirectory=/srv/msu/Frontend
+
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=HOST=127.0.0.1
+Environment=NODE_OPTIONS=--max-old-space-size=320
+
+ExecStart=/usr/bin/node /srv/msu/Frontend/.output/server/index.mjs
+
+KillMode=mixed
+TimeoutStopSec=10
+Restart=always
+RestartSec=3
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

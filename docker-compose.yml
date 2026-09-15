@@ -1,0 +1,20 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: msu_transcripts
+      POSTGRES_USER: msu_transcripts
+      POSTGRES_PASSWORD: msu_transcripts
+    ports:
+      - "5432:5432"
+    volumes:
+      - msu_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U msu_transcripts"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  msu_postgres_data:

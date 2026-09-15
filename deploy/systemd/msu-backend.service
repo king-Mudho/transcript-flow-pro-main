@@ -1,0 +1,44 @@
+# Django API via gunicorn.
+# Install to: /etc/systemd/system/msu-backend.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now msu-backend
+
+[Unit]
+Description=MSU Transcript Collection - Django API (gunicorn)
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=notify
+User=msu
+Group=msu
+WorkingDirectory=/srv/msu/Backend
+
+# Reads SECRET_KEY, DEBUG, ALLOWED_HOSTS and the database credentials.
+# Django also loads this file itself via django-environ; listing it here means
+# gunicorn's own environment matches.
+EnvironmentFile=/srv/msu/Backend/.env
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+
+ExecStart=/srv/msu/Backend/venv/bin/gunicorn \
+    --config /srv/msu/deploy/gunicorn.conf.py \
+    config.wsgi:application
+
+ExecReload=/bin/kill -s HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=10
+Restart=always
+RestartSec=3
+
+# Hardening. The app only ever writes to staticfiles/ and needs no other
+# write access on the filesystem.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/srv/msu/Backend/staticfiles
+
+[Install]
+WantedBy=multi-user.target
