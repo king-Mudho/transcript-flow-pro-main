@@ -9,7 +9,10 @@ import { toast } from "sonner";
 import { GraduationCap, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/reset-password")({
-  validateSearch: z.object({ uid: z.string().catch(""), token: z.string().catch("") }),
+  validateSearch: z.object({
+    uid: z.union([z.string(), z.number()]).transform(String).catch(""),
+    token: z.union([z.string(), z.number()]).transform(String).catch(""),
+  }),
   head: () => ({
     meta: [
       { title: "Choose a new password — MSU Transcript" },

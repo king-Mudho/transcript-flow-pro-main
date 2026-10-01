@@ -190,6 +190,7 @@ export function RequestDetailDialog({
           target={{ ids: [row.id] }}
           count={1}
           status={nextStatus}
+          currentStatus={row.status}
           onClose={() => setMoveOpen(false)}
           onDone={onChanged}
         />

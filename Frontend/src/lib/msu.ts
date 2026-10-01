@@ -68,3 +68,16 @@ export function formatDate(iso: string | null | undefined): string {
 export function waDigits(phone: string): string {
   return phone.replace(/\D/g, "");
 }
+
+/** One step back to fix a mistake. Mirrors BACK_MOVES in requests_app/models.py. */
+const BACK_MOVES: Record<string, string[]> = {
+  submitted_to_msu: ["received"],
+  collected_from_msu: ["submitted_to_msu"],
+  rejected: ["submitted_to_msu"],
+  dispatched: ["collected_from_msu"],
+  collected: ["dispatched"],
+};
+
+export function isBackMove(from: string, to: string): boolean {
+  return (BACK_MOVES[from] ?? []).includes(to);
+}

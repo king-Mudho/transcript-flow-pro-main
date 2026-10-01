@@ -29,7 +29,8 @@ import { ChevronLeft, ChevronRight, Download, Loader2, Search } from "lucide-rea
 
 // Filters and page live in the URL, so a filtered view can be bookmarked.
 const searchSchema = z.object({
-  search: z.string().catch(""),
+  // coerce: the router reads all-digit values (a phone number) as numbers.
+  search: z.union([z.string(), z.number()]).transform(String).catch(""),
   status: z.string().catch("all"),
   zone: z.string().catch("all"),
   exported: z.string().catch("all"),
@@ -82,11 +83,17 @@ function AdminList() {
     try {
       setData(await apiClient.listRequests(filters, params.page));
     } catch (e) {
+      // After a bulk move or a new filter the page can be past the end; go back
+      // to the first page instead of showing an error.
+      if (params.page > 1) {
+        navigate({ search: (prev) => ({ ...prev, page: 1 }) });
+        return;
+      }
       toast.error(e instanceof Error ? e.message : "Failed to load requests");
       setData(null);
     }
     setLoading(false);
-  }, [filters, params.page]);
+  }, [filters, params.page, navigate]);
 
   useEffect(() => {
     load();

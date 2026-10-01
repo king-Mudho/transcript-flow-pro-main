@@ -309,7 +309,15 @@ class BatchSerializer(serializers.ModelSerializer):
 
 
 class BatchDetailSerializer(BatchSerializer):
-    requests = RequestAdminSerializer(many=True, read_only=True)
+    requests = serializers.SerializerMethodField()
 
     class Meta(BatchSerializer.Meta):
         fields = (*BatchSerializer.Meta.fields, "requests")
+
+    def get_requests(self, obj):
+        # A fixed order (by suburb, then reference) so the batch page and the
+        # waybill list documents the same way every time.
+        rows = obj.requests.select_related("zimpost_branch", "batch__driver").order_by(
+            "suburb", "reference_number"
+        )
+        return RequestAdminSerializer(rows, many=True).data

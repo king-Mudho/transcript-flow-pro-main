@@ -146,7 +146,7 @@ REST_FRAMEWORK = {
     "COERCE_DECIMAL_TO_STRING": False,
     # Rate limits for the anonymous endpoints (request submission, password
     # reset). nginx sets X-Forwarded-For, so one proxy hop is trusted.
-    "DEFAULT_THROTTLE_RATES": {"submit": "30/hour", "password_reset": "10/hour"},
+    "DEFAULT_THROTTLE_RATES": {"submit": "120/hour", "password_reset": "10/hour"},
     "NUM_PROXIES": env.int("NUM_PROXIES", default=0 if DEBUG else 1),
 }
 

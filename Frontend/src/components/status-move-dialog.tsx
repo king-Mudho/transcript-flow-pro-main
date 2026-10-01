@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { apiClient, type BulkResult, type RequestFilters } from "@/lib/api-client";
-import { statusLabel } from "@/lib/msu";
+import { isBackMove, statusLabel } from "@/lib/msu";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,7 @@ export function StatusMoveDialog({
   target,
   count,
   status,
+  currentStatus,
   onClose,
   onDone,
 }: {
@@ -31,6 +32,8 @@ export function StatusMoveDialog({
   target: MoveTarget;
   count: number;
   status: string;
+  /** Known for a single request; lets the dialog ask for a note on a back-step. */
+  currentStatus?: string;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -53,9 +56,11 @@ export function StatusMoveDialog({
 
   const rejecting = status === "rejected";
   const dispatching = status === "dispatched";
+  const backStep = !!currentStatus && isBackMove(currentStatus, status);
 
   async function apply() {
     if (rejecting && !reason.trim()) return toast.error("A rejection needs a reason");
+    if (backStep && !note.trim()) return toast.error("Say why you are stepping back");
     setBusy(true);
     try {
       const res = await apiClient.bulkUpdateStatus(target, status, {
@@ -91,9 +96,7 @@ export function StatusMoveDialog({
 
         {result ? (
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              These could not move, because the move is not allowed from their current stage:
-            </p>
+            <p className="text-sm text-muted-foreground">These were left as they were:</p>
             <ul className="max-h-60 space-y-1 overflow-y-auto rounded-md border p-3 text-sm">
               {result.skipped.map((s) => (
                 <li key={s.reference_number}>
@@ -148,7 +151,11 @@ export function StatusMoveDialog({
               </div>
             )}
             <div>
-              <Label>Note (needed when stepping back a stage)</Label>
+              <Label>
+                {backStep
+                  ? "Why are you stepping back? (required)"
+                  : "Note (needed when stepping back a stage)"}
+              </Label>
               <Input className="mt-1.5" value={note} onChange={(e) => setNote(e.target.value)} />
             </div>
             <div className="flex justify-end gap-2">
