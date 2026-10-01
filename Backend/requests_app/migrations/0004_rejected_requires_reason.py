@@ -5,7 +5,7 @@ class Migration(migrations.Migration):
     # Separate from 0002 so the data fix-ups there are committed before the
     # constraint is added (Postgres refuses ALTER TABLE with pending triggers).
 
-    dependencies = [("requests_app", "0002_status_flow_dispatch")]
+    dependencies = [("requests_app", "0003_migrate_statuses")]
 
     operations = [
         migrations.AddConstraint(
