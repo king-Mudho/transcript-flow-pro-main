@@ -1,5 +1,4 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
-import { toast } from "sonner";
 import { apiClient } from "@/lib/api-client";
 
 /**
@@ -26,13 +25,11 @@ export const Route = createFileRoute("/_authenticated")({
     // here, not something worth interrupting the user about.
     if (!user) throw redirect({ to: "/auth" });
 
-    // Signed in but not an admin: this one deserves an explanation, because
-    // otherwise a successful sign-in looks like it silently failed.
+    // Signed in but not an admin: sign them out and show a plain "No access"
+    // page, so a successful sign-in never looks like it silently failed.
     if (!user.is_admin) {
-      // A fixed toast id makes sonner replace rather than stack: beforeLoad can
-      // run more than once during a single navigation.
-      toast.error("Your account doesn't have admin access yet.", { id: "admin-access-denied" });
-      throw redirect({ to: "/auth" });
+      await apiClient.logout().catch(() => undefined);
+      throw redirect({ to: "/no-access" });
     }
 
     return { user };

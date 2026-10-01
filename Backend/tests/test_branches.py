@@ -2,7 +2,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from accounts.models import User
+from accounts.models import Role, User, UserRole
 from branches.models import ZimpostBranch
 
 
@@ -15,8 +15,8 @@ class BranchTests(APITestCase):
             branch_name="Old Branch", branch_area="Harare", active=False
         )
 
-        # First user created is auto-bootstrapped as admin by the post_save signal.
         self.admin_user = User.objects.create_user(email="admin@example.com", password="pw12345678")
+        UserRole.objects.create(user=self.admin_user, role=Role.ADMIN)
         self.plain_user = User.objects.create_user(email="plain@example.com", password="pw12345678")
 
     def _auth(self, user):

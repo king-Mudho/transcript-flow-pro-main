@@ -64,6 +64,7 @@ function RequestPage() {
 
   const [zone, setZone] = useState<"harare" | "outside_harare">("harare");
   const [harare_address, setHarareAddress] = useState("");
+  const [suburb, setSuburb] = useState("");
   const [branchId, setBranchId] = useState<string>("");
 
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -72,7 +73,6 @@ function RequestPage() {
   }, []);
 
   const fee = zone === "harare" ? FEE_HARARE : FEE_OUTSIDE;
-  const payment_method = zone === "harare" ? "cash_on_delivery" : "cash_deposit";
 
   const totalSteps = 5;
   const progress = ((step - 1) / (totalSteps - 1)) * 100;
@@ -103,6 +103,10 @@ function RequestPage() {
         toast.error("Please enter your collection address in Harare");
         return;
       }
+      if (zone === "harare" && !suburb.trim()) {
+        toast.error("Please enter your suburb");
+        return;
+      }
       if (zone === "outside_harare" && !branchId) {
         toast.error("Please choose a Zimpost branch");
         return;
@@ -126,9 +130,8 @@ function RequestPage() {
         cleared_library,
         zone,
         harare_address: zone === "harare" ? harare_address : null,
+        suburb: zone === "harare" ? suburb : null,
         zimpost_branch_id: zone === "outside_harare" ? branchId : null,
-        fee_amount: fee,
-        payment_method,
       };
       // The reference number is generated server-side as part of this call.
       const { reference_number } = await apiClient.createRequest(payload);
@@ -281,13 +284,22 @@ function RequestPage() {
               </RadioGroup>
 
               {zone === "harare" && (
-                <Field label="Collection address (street, suburb)" required>
-                  <Input
-                    value={harare_address}
-                    onChange={(e) => setHarareAddress(e.target.value)}
-                    placeholder="e.g. 42 Samora Machel Ave, Avondale"
-                  />
-                </Field>
+                <>
+                  <Field label="Delivery address (street and house number)" required>
+                    <Input
+                      value={harare_address}
+                      onChange={(e) => setHarareAddress(e.target.value)}
+                      placeholder="e.g. 42 Samora Machel Ave"
+                    />
+                  </Field>
+                  <Field label="Suburb" required>
+                    <Input
+                      value={suburb}
+                      onChange={(e) => setSuburb(e.target.value)}
+                      placeholder="e.g. Avondale"
+                    />
+                  </Field>
+                </>
               )}
               {zone === "outside_harare" && (
                 <Field label="Zimpost branch" required>
@@ -345,7 +357,7 @@ function RequestPage() {
                     k="Delivery"
                     v={
                       zone === "harare"
-                        ? `Harare — ${harare_address}`
+                        ? `Harare — ${harare_address}, ${suburb}`
                         : `Zimpost — ${branches.find((b) => b.id === branchId)?.branch_name ?? "—"}`
                     }
                   />

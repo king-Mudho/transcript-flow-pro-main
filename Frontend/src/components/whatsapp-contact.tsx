@@ -88,3 +88,18 @@ export function WhatsAppFooterLink() {
     </a>
   );
 }
+
+/** Full-width call-to-action used inside the tracking page, e.g. on a rejection. */
+export function WhatsAppContactButton() {
+  return (
+    <a
+      href={WHATSAPP_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-2 rounded-md bg-[#25D366] px-4 py-2 text-sm font-medium text-white hover:bg-[#1EBE5A]"
+    >
+      <WhatsAppIcon className="h-4 w-4" />
+      {LABEL}
+    </a>
+  );
+}

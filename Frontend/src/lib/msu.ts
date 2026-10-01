@@ -1,5 +1,6 @@
-/** Delivery fees in USD. Harare is cash on delivery; everywhere else is a cash
- *  deposit before the transcript is forwarded to a Zimpost branch. */
+/** Delivery fees in USD, for display only. The server sets the real fee when a
+ *  request is submitted (Backend/requests_app/services.py), so these cannot be
+ *  used to change what a graduate is charged. */
 export const FEE_HARARE = 15;
 export const FEE_OUTSIDE = 20;
 
@@ -7,17 +8,31 @@ export const FEE_OUTSIDE = 20;
  *  backend. Keep the two in step: a status the backend can emit but this map
  *  does not know about will fall back to the raw value in the UI. */
 export const STATUS_LABELS: Record<string, string> = {
-  submitted: "Submitted",
-  in_transit: "In Transit",
-  collected: "Collected",
+  received: "Received",
+  submitted_to_msu: "Submitted to MSU",
+  collected_from_msu: "Collected from MSU",
   rejected: "Rejected",
+  dispatched: "Dispatched",
+  collected: "Collected",
 };
 
+/** Every status, in the order shown in filters. */
+export const STATUSES = [
+  "received",
+  "submitted_to_msu",
+  "collected_from_msu",
+  "rejected",
+  "dispatched",
+  "collected",
+] as const;
+
 export const STATUS_CLASSES: Record<string, string> = {
-  submitted: "bg-status-submitted/15 text-status-submitted border-status-submitted/30",
-  in_transit: "bg-status-transit/15 text-status-transit border-status-transit/30",
-  collected: "bg-status-collected/15 text-status-collected border-status-collected/30",
+  received: "bg-status-submitted/15 text-status-submitted border-status-submitted/30",
+  submitted_to_msu: "bg-status-msu/15 text-status-msu border-status-msu/30",
+  collected_from_msu: "bg-status-frommsu/15 text-status-frommsu border-status-frommsu/30",
   rejected: "bg-status-rejected/15 text-status-rejected border-status-rejected/30",
+  dispatched: "bg-status-transit/15 text-status-transit border-status-transit/30",
+  collected: "bg-status-collected/15 text-status-collected border-status-collected/30",
 };
 
 /** Human-readable label for a status, falling back to the raw value.
@@ -47,4 +62,9 @@ export function formatDate(iso: string | null | undefined): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "—";
   return date.toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" });
+}
+
+/** Digits-only form of a +263 number, as wa.me and tel: links want. */
+export function waDigits(phone: string): string {
+  return phone.replace(/\D/g, "");
 }

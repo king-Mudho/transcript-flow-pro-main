@@ -2,32 +2,16 @@ from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from accounts.serializers import MeSerializer, SignupSerializer
-
-
-class SignupView(APIView):
-    """Create an account and sign in immediately.
-
-    There is no email-confirmation step, so the response carries the token pair
-    directly. Note that the very first account created on a fresh database is
-    promoted to admin — see accounts.signals.bootstrap_first_admin.
-    """
-
-    permission_classes = [AllowAny]
-
-    def post(self, request):
-        serializer = SignupSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        refresh = RefreshToken.for_user(user)
-        return Response(
-            {"access": str(refresh.access_token), "refresh": str(refresh)},
-            status=status.HTTP_201_CREATED,
-        )
+from accounts.serializers import (
+    MeSerializer,
+    PasswordResetConfirmSerializer,
+    PasswordResetRequestSerializer,
+)
 
 
 class LogoutView(APIView):
@@ -64,3 +48,32 @@ class MeView(APIView):
 
     def get(self, request):
         return Response(MeSerializer(request.user).data)
+
+
+class PasswordResetThrottle(AnonRateThrottle):
+    scope = "password_reset"
+
+
+class PasswordResetRequestView(APIView):
+    """Email a reset link. Always answers 204, whether or not the address
+    belongs to an account, so the form cannot be used to discover accounts."""
+
+    permission_classes = [AllowAny]
+    throttle_classes = [PasswordResetThrottle]
+
+    def post(self, request):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.send_link()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class PasswordResetConfirmView(APIView):
+    permission_classes = [AllowAny]
+    throttle_classes = [PasswordResetThrottle]
+
+    def post(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)

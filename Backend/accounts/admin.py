@@ -13,8 +13,8 @@ class UserAdmin(admin.ModelAdmin):
 
 @admin.register(UserRole)
 class UserRoleAdmin(admin.ModelAdmin):
-    """Granting the admin role is automatic for the first account (see
-    accounts.signals); this is how it gets granted to anyone after that."""
+    """Admin roles are granted here or with manage.py make_admin; there is
+    no public sign-up and no automatic first-admin promotion."""
 
     list_display = ("user", "role", "created_at")
     list_filter = ("role",)

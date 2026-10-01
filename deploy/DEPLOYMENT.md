@@ -275,15 +275,17 @@ Then visit `https://collectmytranscriptmsu.com`.
 
 ## Step 8 — Create the administrator account
 
-Open `https://collectmytranscriptmsu.com/auth`, choose **Create admin account**
-and register.
+There is no public sign-up. Create the administrator on the server:
 
-> **The first account created on the empty database automatically becomes the
-> administrator.** Do this yourself, immediately, before sharing the URL —
-> otherwise whoever registers first gets admin.
+```sh
+cd /srv/msu/Backend
+sudo -u msu ./venv/bin/python manage.py make_admin you@example.com --password 'a-strong-password'
+```
 
-Every later account is created with no role and is redirected away from `/admin`
-until you grant it one.
+Run it again with another email to add more staff. The sign-in page has a
+**Forgot password?** link; for it to send real emails, set the `EMAIL_*` values
+and `FRONTEND_URL` in `Backend/.env` (see `env-templates/backend.env.production`).
+Without them, reset emails are only written to the service log.
 
 Then walk through the flow once to confirm everything works: add a Zimpost
 branch, submit a request from a private window, look it up on `/status`, and

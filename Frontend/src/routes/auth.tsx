@@ -4,7 +4,6 @@ import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { GraduationCap, Loader2 } from "lucide-react";
 
@@ -24,10 +23,11 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [forgot, setForgot] = useState(false);
 
   useEffect(() => {
     apiClient.me().then((user) => {
-      if (user) navigate({ to: "/admin" });
+      if (user?.is_admin) navigate({ to: "/admin" });
     });
   }, [navigate]);
 
@@ -44,14 +44,16 @@ function AuthPage() {
     }
   }
 
-  async function signUp(e: React.FormEvent) {
+  async function sendReset(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     try {
-      await apiClient.signup(email, password);
-      toast.success("Account created. Sign in.");
+      await apiClient.requestPasswordReset(email);
+      // Same message whether or not the address has an account.
+      toast.success("If that email has an account, a reset link is on its way.");
+      setForgot(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Sign up failed");
+      toast.error(err instanceof Error ? err.message : "Could not send the reset email");
     } finally {
       setLoading(false);
     }
@@ -67,70 +69,47 @@ function AuthPage() {
           <span className="font-semibold">MSU Transcript · Admin</span>
         </Link>
         <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <Tabs defaultValue="signin">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="signin">Sign in</TabsTrigger>
-              <TabsTrigger value="signup">Create admin account</TabsTrigger>
-            </TabsList>
-            <TabsContent value="signin">
-              <form onSubmit={signIn} className="mt-4 space-y-4">
-                <div>
-                  <Label>Email</Label>
-                  <Input
-                    className="mt-1.5"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label>Password</Label>
-                  <Input
-                    className="mt-1.5"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                <Button type="submit" disabled={loading} className="w-full">
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Sign in
-                </Button>
-              </form>
-            </TabsContent>
-            <TabsContent value="signup">
-              <form onSubmit={signUp} className="mt-4 space-y-4">
-                <p className="text-xs text-muted-foreground">
-                  The first account created is automatically granted admin access.
-                </p>
-                <div>
-                  <Label>Email</Label>
-                  <Input
-                    className="mt-1.5"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label>Password</Label>
-                  <Input
-                    className="mt-1.5"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    minLength={6}
-                  />
-                </div>
-                <Button type="submit" disabled={loading} className="w-full">
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create account
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
+          <h1 className="text-lg font-semibold">{forgot ? "Reset your password" : "Sign in"}</h1>
+          <form onSubmit={forgot ? sendReset : signIn} className="mt-4 space-y-4">
+            {forgot && (
+              <p className="text-xs text-muted-foreground">
+                Enter your admin email and we will send you a link to choose a new password.
+              </p>
+            )}
+            <div>
+              <Label>Email</Label>
+              <Input
+                className="mt-1.5"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+            {!forgot && (
+              <div>
+                <Label>Password</Label>
+                <Input
+                  className="mt-1.5"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+            )}
+            <Button type="submit" disabled={loading} className="w-full">
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {forgot ? "Send reset link" : "Sign in"}
+            </Button>
+          </form>
+          <button
+            type="button"
+            onClick={() => setForgot(!forgot)}
+            className="mt-4 w-full text-center text-xs text-muted-foreground hover:text-foreground"
+          >
+            {forgot ? "Back to sign in" : "Forgot password?"}
+          </button>
         </div>
         <p className="mt-4 text-center text-xs text-muted-foreground">
           <Link to="/" className="hover:text-foreground">

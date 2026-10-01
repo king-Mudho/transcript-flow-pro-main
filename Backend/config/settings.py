@@ -144,7 +144,28 @@ REST_FRAMEWORK = {
     # Serialize Decimals as JSON numbers, not strings. The UI interpolates
     # fee_amount directly, so a string would render "US$15.00" instead of "US$15".
     "COERCE_DECIMAL_TO_STRING": False,
+    # Rate limits for the anonymous endpoints (request submission, password
+    # reset). nginx sets X-Forwarded-For, so one proxy hop is trusted.
+    "DEFAULT_THROTTLE_RATES": {"submit": "30/hour", "password_reset": "10/hour"},
+    "NUM_PROXIES": env.int("NUM_PROXIES", default=0 if DEBUG else 1),
 }
+
+# Password-reset emails. Without SMTP settings, emails are printed to the
+# server log (journalctl in production).
+EMAIL_HOST = env("EMAIL_HOST", default="")
+if EMAIL_HOST:
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+    EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+    EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
+    EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
+    EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+DEFAULT_FROM_EMAIL = env(
+    "DEFAULT_FROM_EMAIL", default="MSU Transcript <noreply@collectmytranscriptmsu.com>"
+)
+# Base URL used to build links in emails.
+FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:8080")
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),

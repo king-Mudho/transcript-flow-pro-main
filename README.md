@@ -126,10 +126,10 @@ python manage.py runserver
 
 The API is now available at `http://127.0.0.1:8000/api/`.
 
-> **First account becomes the administrator.** On an empty database, the first account registered is
-> automatically granted the `admin` role — otherwise nobody could ever reach the dashboard. Create
-> your own account first, before anyone else signs up. Later accounts get no role and are turned away
-> from the admin pages until an existing admin grants them one.
+> **There is no public sign-up.** Admin accounts are created from the command line:
+> `python manage.py make_admin you@example.com --password 'a-strong-password'` (omit `--password`
+> to grant the role to an account that already exists). Staff can reset a forgotten password from
+> the sign-in page; in development the reset email is printed in the server console.
 
 ---
 
@@ -179,9 +179,9 @@ the server can't be reached.
 
 Walk this through once after setup to confirm everything is wired together correctly.
 
-1. **Create the administrator account.** Open `http://localhost:8080/auth`, switch to the
-   **Create admin account** tab, and register. This is the first account, so it becomes the admin.
-2. **Sign in.** Use the **Sign in** tab with those credentials. You land on `/admin`, the requests
+1. **Create the administrator account.** From `Backend/`, run
+   `python manage.py make_admin you@example.com --password 'a-strong-password'`.
+2. **Sign in.** Open `http://localhost:8080/auth` and use those credentials. You land on `/admin`, the requests
    dashboard, which will be empty.
 3. **Add a Zimpost branch.** Go to **Zimpost Branches**, click **Add branch**, and save one (for
    example "Gweru Post Office" / "Gweru"). Only branches marked active appear on the public form.
@@ -200,8 +200,10 @@ Walk this through once after setup to confirm everything is wired together corre
 
 ## Testing
 
-**Backend** — 37 tests covering the first-admin bootstrap, reference-number generation, the public
-status lookup's field restrictions, and admin-only access on every protected endpoint:
+**Backend** — 76 tests covering submission hardening, the six-status flow and its transition rules,
+the history log, the public tracking payload, delivery-detail edits and locking, drivers, dispatch
+batches, Zimpost dispatch, paging and export, password reset, and admin-only access on every
+protected endpoint:
 
 ```sh
 cd Backend
@@ -226,20 +228,12 @@ npm run build        # production build
 npm run preview      # serve the production build locally
 ```
 
-**Last full integration pass (2026-07-27):** backend's 37 tests pass, `ruff check`/`ruff format
---check` are clean, the frontend type-checks, lints and builds with no errors, and every endpoint
-(signup, login, `/me`, branch CRUD, request submission, status lookup, paid toggle, bulk status
-update, export) was exercised directly against a running server and matched what the UI does. The
-full first-time-use walkthrough above was also run end to end in a browser against both servers.
-That pass found one frontend bug, now fixed: the admin request-detail dialog held its own snapshot
-of the row, so toggling **Paid** inside the dialog saved correctly but the checkbox didn't visibly
-update until the dialog was closed and reopened — `Frontend/src/routes/_authenticated/admin.index.tsx`
-now derives the open dialog's row from the live `rows` state instead of a separate `detail` snapshot.
-The default Lovable favicon was also removed (`Frontend/public/favicon.ico` and the `<link rel="icon">`
-in `Frontend/src/routes/__root.tsx`) since this project no longer uses Lovable. The test accounts,
-branches and requests created during that pass were deleted from the local PostgreSQL database
-afterwards, so the database is empty again — the **First-time use** walkthrough below runs exactly as
-written, including the first account you register becoming the administrator.
+**Last full pass (2026-10-01, stages 0 to 3 of the development brief):** backend's 76 tests pass,
+`ruff check`/`ruff format --check` are clean, the frontend type-checks, lints and builds, and the
+admin flow (sign-in, bulk status move, dispatch batch with a driver, waybill PDF, history tab) and
+the public tracking page (stepper, driver card, Zimpost details, 360px width) were exercised in a
+browser against a local server. The status-flow migration was also run against rows in the old
+four-status shape to confirm the mapping and the history backfill.
 
 ---
 
@@ -251,7 +245,7 @@ written, including the first account you register becoming the administrator.
 │   ├── accounts/             users, roles, JWT auth endpoints
 │   │   ├── models.py         custom User (email login) + UserRole
 │   │   ├── permissions.py    IsAdmin — the real authorization gate
-│   │   ├── signals.py        first account created becomes admin
+│   │   ├── management/       `make_admin` command
 │   │   └── views.py          signup / logout / me
 │   ├── branches/             Zimpost branch directory (public read, admin write)
 │   ├── requests_app/         transcript requests
@@ -314,9 +308,8 @@ PostgreSQL isn't up. Run `docker compose up -d db` from the repository root and 
 `docker compose ps` reports it as healthy.
 
 **Signed in successfully but bounced off `/admin`.**
-That account doesn't hold the `admin` role — only the first account registered gets it
-automatically. Grant the role to another account from the Django admin at
-`http://127.0.0.1:8000/django-admin/` (you'll need a superuser: `python manage.py createsuperuser`).
+That account doesn't hold the `admin` role. Grant it with
+`python manage.py make_admin the-account@example.com`.
 
 **A status lookup that should match returns nothing.**
 Both the reference number and the registration number must match the same request. The registration

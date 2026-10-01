@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { apiClient, type StatusResult } from "@/lib/api-client";
 import { SiteFooter, SiteHeader } from "@/components/site-header";
+import { TrackingStepper } from "@/components/tracking-stepper";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -90,8 +91,8 @@ function StatusPage() {
 
         {result && (
           <div className="mt-6 rounded-lg border bg-card p-6">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
                 <div className="font-mono text-sm text-muted-foreground">
                   {result.reference_number}
                 </div>
@@ -99,17 +100,15 @@ function StatusPage() {
                 <div className="text-sm text-muted-foreground">{result.programme_name}</div>
               </div>
               <span
-                className={`rounded-full border px-3 py-1 text-xs font-medium ${statusClasses(result.status)}`}
+                className={`shrink-0 rounded-full border px-3 py-1 text-xs font-medium ${statusClasses(result.status)}`}
               >
                 {statusLabel(result.status)}
               </span>
             </div>
-            {result.status_reason && (
-              <p className="mt-4 rounded-md border border-status-rejected/30 bg-status-rejected/5 p-3 text-sm text-status-rejected">
-                {result.status_reason}
-              </p>
-            )}
-            <dl className="mt-5 grid gap-2 text-sm">
+
+            <TrackingStepper result={result} />
+
+            <dl className="mt-6 grid gap-2 border-t pt-5 text-sm">
               <Row
                 k="Delivery"
                 v={

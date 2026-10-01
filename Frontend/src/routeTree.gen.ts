@@ -12,10 +12,15 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as NoAccessRouteImport } from './routes/no-access'
 import { Route as RequestRouteImport } from './routes/request'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as StatusRouteImport } from './routes/status'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
 import { Route as AuthenticatedAdminBranchesRouteImport } from './routes/_authenticated/admin.branches'
+import { Route as AuthenticatedAdminDispatchRouteImport } from './routes/_authenticated/admin.dispatch'
+import { Route as AuthenticatedAdminDriversRouteImport } from './routes/_authenticated/admin.drivers'
+import { Route as AuthenticatedAdminBatchBatchIdRouteImport } from './routes/_authenticated/admin.batch.$batchId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -31,9 +36,19 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NoAccessRoute = NoAccessRouteImport.update({
+  id: '/no-access',
+  path: '/no-access',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RequestRoute = RequestRouteImport.update({
   id: '/request',
   path: '/request',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StatusRoute = StatusRouteImport.update({
@@ -52,55 +67,116 @@ const AuthenticatedAdminBranchesRoute =
     path: '/admin/branches',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAdminDispatchRoute =
+  AuthenticatedAdminDispatchRouteImport.update({
+    id: '/admin/dispatch',
+    path: '/admin/dispatch',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAdminDriversRoute =
+  AuthenticatedAdminDriversRouteImport.update({
+    id: '/admin/drivers',
+    path: '/admin/drivers',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAdminBatchBatchIdRoute =
+  AuthenticatedAdminBatchBatchIdRouteImport.update({
+    id: '/admin/batch/$batchId',
+    path: '/admin/batch/$batchId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/no-access': typeof NoAccessRoute
   '/request': typeof RequestRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/status': typeof StatusRoute
   '/admin/branches': typeof AuthenticatedAdminBranchesRoute
+  '/admin/dispatch': typeof AuthenticatedAdminDispatchRoute
+  '/admin/drivers': typeof AuthenticatedAdminDriversRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
+  '/admin/batch/$batchId': typeof AuthenticatedAdminBatchBatchIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/no-access': typeof NoAccessRoute
   '/request': typeof RequestRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/status': typeof StatusRoute
   '/admin/branches': typeof AuthenticatedAdminBranchesRoute
+  '/admin/dispatch': typeof AuthenticatedAdminDispatchRoute
+  '/admin/drivers': typeof AuthenticatedAdminDriversRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
+  '/admin/batch/$batchId': typeof AuthenticatedAdminBatchBatchIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/no-access': typeof NoAccessRoute
   '/request': typeof RequestRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/status': typeof StatusRoute
   '/_authenticated/admin/branches': typeof AuthenticatedAdminBranchesRoute
+  '/_authenticated/admin/dispatch': typeof AuthenticatedAdminDispatchRoute
+  '/_authenticated/admin/drivers': typeof AuthenticatedAdminDriversRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
+  '/_authenticated/admin/batch/$batchId': typeof AuthenticatedAdminBatchBatchIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/auth' | '/request' | '/status' | '/admin/branches' | '/admin/'
+    | '/'
+    | '/auth'
+    | '/no-access'
+    | '/request'
+    | '/reset-password'
+    | '/status'
+    | '/admin/branches'
+    | '/admin/dispatch'
+    | '/admin/drivers'
+    | '/admin/'
+    | '/admin/batch/$batchId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/request' | '/status' | '/admin/branches' | '/admin'
+  to:
+    | '/'
+    | '/auth'
+    | '/no-access'
+    | '/request'
+    | '/reset-password'
+    | '/status'
+    | '/admin/branches'
+    | '/admin/dispatch'
+    | '/admin/drivers'
+    | '/admin'
+    | '/admin/batch/$batchId'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/no-access'
     | '/request'
+    | '/reset-password'
     | '/status'
     | '/_authenticated/admin/branches'
+    | '/_authenticated/admin/dispatch'
+    | '/_authenticated/admin/drivers'
     | '/_authenticated/admin/'
+    | '/_authenticated/admin/batch/$batchId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  NoAccessRoute: typeof NoAccessRoute
   RequestRoute: typeof RequestRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   StatusRoute: typeof StatusRoute
 }
 
@@ -127,11 +203,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/no-access': {
+      id: '/no-access'
+      path: '/no-access'
+      fullPath: '/no-access'
+      preLoaderRoute: typeof NoAccessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/request': {
       id: '/request'
       path: '/request'
       fullPath: '/request'
       preLoaderRoute: typeof RequestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/status': {
@@ -155,17 +245,44 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminBranchesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin/dispatch': {
+      id: '/_authenticated/admin/dispatch'
+      path: '/admin/dispatch'
+      fullPath: '/admin/dispatch'
+      preLoaderRoute: typeof AuthenticatedAdminDispatchRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/admin/drivers': {
+      id: '/_authenticated/admin/drivers'
+      path: '/admin/drivers'
+      fullPath: '/admin/drivers'
+      preLoaderRoute: typeof AuthenticatedAdminDriversRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/admin/batch/$batchId': {
+      id: '/_authenticated/admin/batch/$batchId'
+      path: '/admin/batch/$batchId'
+      fullPath: '/admin/batch/$batchId'
+      preLoaderRoute: typeof AuthenticatedAdminBatchBatchIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminBranchesRoute: typeof AuthenticatedAdminBranchesRoute
+  AuthenticatedAdminDispatchRoute: typeof AuthenticatedAdminDispatchRoute
+  AuthenticatedAdminDriversRoute: typeof AuthenticatedAdminDriversRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
+  AuthenticatedAdminBatchBatchIdRoute: typeof AuthenticatedAdminBatchBatchIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminBranchesRoute: AuthenticatedAdminBranchesRoute,
+  AuthenticatedAdminDispatchRoute: AuthenticatedAdminDispatchRoute,
+  AuthenticatedAdminDriversRoute: AuthenticatedAdminDriversRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
+  AuthenticatedAdminBatchBatchIdRoute: AuthenticatedAdminBatchBatchIdRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
@@ -175,7 +292,9 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  NoAccessRoute: NoAccessRoute,
   RequestRoute: RequestRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   StatusRoute: StatusRoute,
 }
 export const routeTree = rootRouteImport

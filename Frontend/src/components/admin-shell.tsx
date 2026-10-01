@@ -1,7 +1,7 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
-import { FileText, GraduationCap, LogOut, MapPin } from "lucide-react";
+import { Bike, FileText, GraduationCap, LogOut, MapPin, Truck } from "lucide-react";
 import { toast } from "sonner";
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
@@ -16,6 +16,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   const nav = [
     { to: "/admin", label: "Requests", icon: FileText },
+    { to: "/admin/dispatch", label: "Dispatch", icon: Truck },
+    { to: "/admin/drivers", label: "Drivers", icon: Bike },
     { to: "/admin/branches", label: "Zimpost Branches", icon: MapPin },
   ] as const;
 
@@ -33,7 +35,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </div>
         <nav className="mt-4 flex-1 px-3">
           {nav.map((item) => {
-            const active = item.to === "/admin" ? path === "/admin" : path.startsWith(item.to);
+            const active =
+              item.to === "/admin"
+                ? path === "/admin"
+                : path.startsWith(item.to) ||
+                  (item.to === "/admin/dispatch" && path.startsWith("/admin/batch"));
             return (
               <Link
                 key={item.to}

@@ -6,4 +6,6 @@ urlpatterns = [
     path("api/auth/", include("accounts.urls")),
     path("api/branches/", include("branches.urls")),
     path("api/requests/", include("requests_app.urls")),
+    path("api/dispatch/", include("requests_app.dispatch_urls")),
+    path("api/drivers/", include("requests_app.driver_urls")),
 ]

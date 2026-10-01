@@ -1,7 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { apiClient, type RequestRow } from "@/lib/api-client";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { z } from "zod";
+import { apiClient, type Page, type RequestFilters, type RequestRow } from "@/lib/api-client";
 import { AdminShell } from "@/components/admin-shell";
+import { RequestDetailDialog } from "@/components/request-detail-dialog";
+import { StatusMoveDialog, type MoveTarget } from "@/components/status-move-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -20,95 +23,112 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { formatDate, statusClasses, statusLabel } from "@/lib/msu";
+import { STATUSES, formatDate, statusClasses, statusLabel } from "@/lib/msu";
 import { toast } from "sonner";
-import { Download, Loader2, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Loader2, Search } from "lucide-react";
+
+// Filters and page live in the URL, so a filtered view can be bookmarked.
+const searchSchema = z.object({
+  search: z.string().catch(""),
+  status: z.string().catch("all"),
+  zone: z.string().catch("all"),
+  exported: z.string().catch("all"),
+  date_from: z.string().catch(""),
+  date_to: z.string().catch(""),
+  page: z.number().int().min(1).catch(1),
+});
 
 export const Route = createFileRoute("/_authenticated/admin/")({
+  validateSearch: searchSchema,
   head: () => ({ meta: [{ title: "Admin — Requests" }, { name: "robots", content: "noindex" }] }),
   component: AdminList,
 });
 
-const STATUSES = ["submitted", "in_transit", "collected", "rejected"] as const;
+const PAGE_SIZE = 50;
 
 function AdminList() {
-  const [rows, setRows] = useState<RequestRow[]>([]);
+  const params = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
+
+  const filters: RequestFilters = useMemo(
+    () => ({
+      search: params.search,
+      status: params.status,
+      zone: params.zone,
+      exported: params.exported,
+      date_from: params.date_from,
+      date_to: params.date_to,
+    }),
+    [params.search, params.status, params.zone, params.exported, params.date_from, params.date_to],
+  );
+
+  const [data, setData] = useState<Page<RequestRow> | null>(null);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [zoneFilter, setZoneFilter] = useState<string>("all");
-  const [exportedFilter, setExportedFilter] = useState<string>("all");
+  // Typing is local; the URL (and so the query) updates after a short pause.
+  const [searchText, setSearchText] = useState(params.search);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [bulkStatus, setBulkStatus] = useState<string>("");
+  const [allMatching, setAllMatching] = useState(false);
+  const [bulkStatus, setBulkStatus] = useState("");
+  const [move, setMove] = useState<{ target: MoveTarget; count: number; status: string } | null>(
+    null,
+  );
   const [detailId, setDetailId] = useState<string | null>(null);
-  // Looked up from `rows` (not stored as its own snapshot) so the open dialog
-  // reflects the latest paid/status values after a `load()` refresh instead of
-  // showing the stale state from when it was opened.
+
+  const rows = useMemo(() => data?.results ?? [], [data]);
   const detail = useMemo(() => rows.find((r) => r.id === detailId) ?? null, [rows, detailId]);
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
-      setRows(await apiClient.listRequests());
+      setData(await apiClient.listRequests(filters, params.page));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to load requests");
-      setRows([]);
+      setData(null);
     }
     setLoading(false);
-  }
+  }, [filters, params.page]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
-  const filtered = useMemo(() => {
-    return rows.filter((r) => {
-      if (statusFilter !== "all" && r.status !== statusFilter) return false;
-      if (zoneFilter !== "all" && r.zone !== zoneFilter) return false;
-      if (exportedFilter === "not_exported" && r.exported_at) return false;
-      if (exportedFilter === "exported" && !r.exported_at) return false;
-      if (search) {
-        const s = search.toLowerCase();
-        return (
-          r.reference_number.toLowerCase().includes(s) ||
-          r.full_name.toLowerCase().includes(s) ||
-          r.reg_number.toLowerCase().includes(s) ||
-          r.programme_name.toLowerCase().includes(s)
-        );
-      }
-      return true;
-    });
-  }, [rows, search, statusFilter, zoneFilter, exportedFilter]);
+  useEffect(() => {
+    setSelected(new Set());
+    setAllMatching(false);
+  }, [filters, params.page]);
+
+  useEffect(() => {
+    if (searchText === params.search) return;
+    const t = setTimeout(
+      () => navigate({ search: (prev) => ({ ...prev, search: searchText, page: 1 }) }),
+      350,
+    );
+    return () => clearTimeout(t);
+  }, [searchText, params.search, navigate]);
+
+  function setFilter(patch: Partial<RequestFilters>) {
+    navigate({ search: (prev) => ({ ...prev, ...patch, page: 1 }) });
+  }
+
+  const total = data?.count ?? 0;
+  const first = total === 0 ? 0 : (params.page - 1) * PAGE_SIZE + 1;
+  const last = Math.min(params.page * PAGE_SIZE, total);
+  const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const pageAllSelected = rows.length > 0 && rows.every((r) => selected.has(r.id));
+  const selectedCount = allMatching ? total : selected.size;
 
   function toggle(id: string) {
     const next = new Set(selected);
-    if (next.has(id)) {
-      next.delete(id);
-    } else {
-      next.add(id);
-    }
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setAllMatching(false);
     setSelected(next);
-  }
-
-  async function updateStatus(ids: string[], status: string, reason?: string) {
-    try {
-      await apiClient.bulkUpdateStatus(
-        ids,
-        status,
-        status === "rejected" ? (reason ?? null) : undefined,
-      );
-    } catch (e) {
-      return toast.error(e instanceof Error ? e.message : "Update failed");
-    }
-    toast.success(`Updated ${ids.length} request(s)`);
-    await load();
   }
 
   async function togglePaid(id: string, paid: boolean) {
     try {
-      await apiClient.updateRequestPaid(id, paid);
+      await apiClient.updateRequest(id, { paid });
     } catch (e) {
       return toast.error(e instanceof Error ? e.message : "Update failed");
     }
@@ -116,21 +136,14 @@ function AdminList() {
   }
 
   async function exportExcel() {
-    if (filtered.length === 0) return toast.error("Nothing to export");
-    // The workbook is generated server-side, which also stamps exported_at on
-    // exactly the rows it exported — the same filters are applied there.
+    if (total === 0) return toast.error("Nothing to export");
     let blob: Blob;
     try {
-      blob = await apiClient.exportRequests({
-        search,
-        status: statusFilter,
-        zone: zoneFilter,
-        exported: exportedFilter,
-      });
+      // The server exports every row that matches the filters, not just this page.
+      blob = await apiClient.exportRequests(filters);
     } catch (e) {
       return toast.error(e instanceof Error ? e.message : "Export failed");
     }
-
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -139,8 +152,7 @@ function AdminList() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-
-    toast.success(`Exported ${filtered.length} records`);
+    toast.success(`Exported ${total} records`);
     await load();
   }
 
@@ -150,7 +162,7 @@ function AdminList() {
         <div>
           <h1 className="text-2xl font-semibold">Transcript Requests</h1>
           <p className="text-sm text-muted-foreground">
-            {filtered.length} of {rows.length} shown
+            {total === 0 ? "No requests" : `${first} to ${last} of ${total}`}
           </p>
         </div>
         <Button onClick={exportExcel} className="bg-gold text-gold-foreground hover:bg-gold/90">
@@ -159,17 +171,17 @@ function AdminList() {
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border bg-card p-3">
-        <div className="relative flex-1 min-w-[200px]">
+        <div className="relative min-w-[200px] flex-1">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search name, reg #, reference, programme…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search name, reg #, reference, phone, programme…"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
             className="pl-8"
           />
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[160px]">
+        <Select value={params.status} onValueChange={(v) => setFilter({ status: v })}>
+          <SelectTrigger className="w-[190px]">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -181,7 +193,7 @@ function AdminList() {
             ))}
           </SelectContent>
         </Select>
-        <Select value={zoneFilter} onValueChange={setZoneFilter}>
+        <Select value={params.zone} onValueChange={(v) => setFilter({ zone: v })}>
           <SelectTrigger className="w-[160px]">
             <SelectValue placeholder="Zone" />
           </SelectTrigger>
@@ -191,7 +203,7 @@ function AdminList() {
             <SelectItem value="outside_harare">Outside Harare</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={exportedFilter} onValueChange={setExportedFilter}>
+        <Select value={params.exported} onValueChange={(v) => setFilter({ exported: v })}>
           <SelectTrigger className="w-[180px]">
             <SelectValue />
           </SelectTrigger>
@@ -201,37 +213,80 @@ function AdminList() {
             <SelectItem value="exported">Already exported</SelectItem>
           </SelectContent>
         </Select>
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          From
+          <Input
+            type="date"
+            className="w-[150px]"
+            value={params.date_from}
+            onChange={(e) => setFilter({ date_from: e.target.value })}
+          />
+        </label>
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          To
+          <Input
+            type="date"
+            className="w-[150px]"
+            value={params.date_to}
+            onChange={(e) => setFilter({ date_to: e.target.value })}
+          />
+        </label>
       </div>
 
-      {selected.size > 0 && (
-        <div className="mb-3 flex items-center gap-2 rounded-lg border bg-primary/5 p-3 text-sm">
-          <span className="font-medium">{selected.size} selected</span>
-          <Select value={bulkStatus} onValueChange={setBulkStatus}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Move to status…" />
-            </SelectTrigger>
-            <SelectContent>
-              {STATUSES.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {statusLabel(s)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            size="sm"
-            disabled={!bulkStatus}
-            onClick={async () => {
-              await updateStatus(Array.from(selected), bulkStatus);
-              setSelected(new Set());
-              setBulkStatus("");
-            }}
-          >
-            Apply
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
-            Clear
-          </Button>
+      {(selected.size > 0 || allMatching) && (
+        <div className="mb-3 space-y-2 rounded-lg border bg-primary/5 p-3 text-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-medium">
+              {allMatching ? `All ${total} matching selected` : `${selected.size} selected`}
+            </span>
+            <Select value={bulkStatus} onValueChange={setBulkStatus}>
+              <SelectTrigger className="w-[190px]">
+                <SelectValue placeholder="Move to status…" />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUSES.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {statusLabel(s)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              size="sm"
+              disabled={!bulkStatus}
+              onClick={() =>
+                setMove({
+                  target: allMatching ? { filters } : { ids: Array.from(selected) },
+                  count: selectedCount,
+                  status: bulkStatus,
+                })
+              }
+            >
+              Apply
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setSelected(new Set());
+                setAllMatching(false);
+              }}
+            >
+              Clear
+            </Button>
+          </div>
+          {pageAllSelected && !allMatching && total > rows.length && (
+            <div className="text-xs">
+              All {rows.length} on this page are selected.{" "}
+              <button
+                type="button"
+                className="font-medium text-primary underline"
+                onClick={() => setAllMatching(true)}
+              >
+                Select all {total} matching
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -246,17 +301,18 @@ function AdminList() {
               <TableRow>
                 <TableHead className="w-8">
                   <Checkbox
-                    checked={filtered.length > 0 && filtered.every((r) => selected.has(r.id))}
-                    onCheckedChange={(v) =>
-                      setSelected(v ? new Set(filtered.map((r) => r.id)) : new Set())
-                    }
+                    checked={pageAllSelected}
+                    onCheckedChange={(v) => {
+                      setAllMatching(false);
+                      setSelected(v ? new Set(rows.map((r) => r.id)) : new Set());
+                    }}
                   />
                 </TableHead>
                 <TableHead>Reference</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Reg #</TableHead>
+                <TableHead>Phone</TableHead>
                 <TableHead>Programme</TableHead>
-                <TableHead>Year</TableHead>
                 <TableHead>Zone</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Paid</TableHead>
@@ -264,22 +320,25 @@ function AdminList() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((r) => (
+              {rows.map((r) => (
                 <TableRow key={r.id} className="cursor-pointer" onClick={() => setDetailId(r.id)}>
                   <TableCell onClick={(e) => e.stopPropagation()}>
-                    <Checkbox checked={selected.has(r.id)} onCheckedChange={() => toggle(r.id)} />
+                    <Checkbox
+                      checked={selected.has(r.id) || allMatching}
+                      onCheckedChange={() => toggle(r.id)}
+                    />
                   </TableCell>
                   <TableCell className="font-mono text-xs">{r.reference_number}</TableCell>
                   <TableCell className="font-medium">{r.full_name}</TableCell>
                   <TableCell>{r.reg_number}</TableCell>
+                  <TableCell className="text-xs">{r.phone_number}</TableCell>
                   <TableCell className="max-w-[200px] truncate">{r.programme_name}</TableCell>
-                  <TableCell>{r.year_completed}</TableCell>
                   <TableCell className="text-xs">
                     {r.zone === "harare" ? "Harare" : "Outside"}
                   </TableCell>
                   <TableCell>
                     <span
-                      className={`inline-block rounded-full border px-2 py-0.5 text-[11px] font-medium ${statusClasses(r.status)}`}
+                      className={`inline-block whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-medium ${statusClasses(r.status)}`}
                     >
                       {statusLabel(r.status)}
                     </span>
@@ -295,7 +354,7 @@ function AdminList() {
                   </TableCell>
                 </TableRow>
               ))}
-              {filtered.length === 0 && (
+              {rows.length === 0 && (
                 <TableRow>
                   <TableCell
                     colSpan={10}
@@ -310,151 +369,47 @@ function AdminList() {
         )}
       </div>
 
-      <DetailDialog
-        row={detail}
-        onClose={() => setDetailId(null)}
-        onUpdate={async (ids, s, r) => {
-          await updateStatus(ids, s, r);
-        }}
-        onTogglePaid={async (id, p) => {
-          await togglePaid(id, p);
-        }}
-      />
+      <div className="mt-3 flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">
+          Page {params.page} of {lastPage}
+        </span>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={params.page <= 1}
+            onClick={() => navigate({ search: (prev) => ({ ...prev, page: params.page - 1 }) })}
+          >
+            <ChevronLeft className="mr-1 h-4 w-4" /> Previous
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={params.page >= lastPage}
+            onClick={() => navigate({ search: (prev) => ({ ...prev, page: params.page + 1 }) })}
+          >
+            Next <ChevronRight className="ml-1 h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      <RequestDetailDialog row={detail} onClose={() => setDetailId(null)} onChanged={load} />
+
+      {move && (
+        <StatusMoveDialog
+          open
+          target={move.target}
+          count={move.count}
+          status={move.status}
+          onClose={() => {
+            setMove(null);
+            setSelected(new Set());
+            setAllMatching(false);
+            setBulkStatus("");
+          }}
+          onDone={load}
+        />
+      )}
     </AdminShell>
-  );
-}
-
-function DetailDialog({
-  row,
-  onClose,
-  onUpdate,
-  onTogglePaid,
-}: {
-  row: RequestRow | null;
-  onClose: () => void;
-  onUpdate: (ids: string[], status: string, reason?: string) => Promise<void>;
-  onTogglePaid: (id: string, paid: boolean) => Promise<void>;
-}) {
-  const [status, setStatus] = useState<string>("");
-  const [reason, setReason] = useState<string>("");
-
-  useEffect(() => {
-    if (row) {
-      setStatus(row.status);
-      setReason(row.status_reason ?? "");
-    }
-  }, [row]);
-
-  if (!row) return null;
-
-  return (
-    <Dialog open={!!row} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-3">
-            <span className="font-mono text-sm">{row.reference_number}</span>
-            <span
-              className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${statusClasses(row.status)}`}
-            >
-              {statusLabel(row.status)}
-            </span>
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Info k="Full name" v={row.full_name} />
-          <Info k="Reg #" v={row.reg_number} />
-          <Info k="Programme" v={row.programme_name} />
-          <Info k="Year completed" v={String(row.year_completed)} />
-          <Info k="Phone" v={row.phone_number} />
-          <Info k="Email" v={row.email ?? "—"} />
-          <Info k="Zone" v={row.zone === "harare" ? "Harare" : "Outside Harare"} />
-          <Info
-            k="Fee"
-            v={`US$${row.fee_amount} (${row.payment_method === "cash_on_delivery" ? "COD" : "Deposit"})`}
-          />
-          <Info
-            k="Address / Branch"
-            v={
-              row.zone === "harare"
-                ? (row.harare_address ?? "—")
-                : row.zimpost_branches
-                  ? `${row.zimpost_branches.branch_name} — ${row.zimpost_branches.branch_area}`
-                  : "—"
-            }
-          />
-          <Info k="Submitted" v={formatDate(row.created_at)} />
-        </div>
-
-        <div className="rounded-md border bg-muted/30 p-3 text-sm">
-          <div className="mb-2 font-medium">Clearance ticks</div>
-          <div className="flex flex-wrap gap-3 text-xs">
-            <ClearanceTick label="Department" checked={row.cleared_department} />
-            <ClearanceTick label="Accounts" checked={row.cleared_accounts} />
-            <ClearanceTick label="Library" checked={row.cleared_library} />
-          </div>
-        </div>
-
-        <div className="grid gap-3 rounded-md border p-3">
-          <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={row.paid}
-                onCheckedChange={(v) => onTogglePaid(row.id, v === true)}
-              />{" "}
-              Paid
-            </label>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {STATUSES.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {statusLabel(s)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              onClick={async () => {
-                await onUpdate([row.id], status, reason);
-                onClose();
-              }}
-            >
-              Update status
-            </Button>
-          </div>
-          {status === "rejected" && (
-            <Textarea
-              placeholder="Reason for rejection (optional)"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function Info({ k, v }: { k: string; v: string }) {
-  return (
-    <div>
-      <div className="text-xs text-muted-foreground">{k}</div>
-      <div className="text-sm font-medium">{v}</div>
-    </div>
-  );
-}
-
-function ClearanceTick({ label, checked }: { label: string; checked: boolean }) {
-  return (
-    <span
-      className={`rounded-full border px-2 py-0.5 ${checked ? "border-status-collected/40 bg-status-collected/10 text-status-collected" : "border-status-rejected/40 bg-status-rejected/10 text-status-rejected"}`}
-    >
-      {checked ? "✓" : "✗"} {label}
-    </span>
   );
 }
