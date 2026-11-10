@@ -4,3 +4,4 @@ __pycache__/
 .env
 staticfiles/
 .ruff_cache/
+private_media/

@@ -1,0 +1,11 @@
+# Nightly database and clearance-file backup (backlog B11.3).
+[Unit]
+Description=MSU Transcript Collection - nightly backup
+After=postgresql.service
+
+[Service]
+Type=oneshot
+User=msu
+Group=msu
+EnvironmentFile=/srv/msu/Backend/.env
+ExecStart=/bin/bash /srv/msu/deploy/backup.sh

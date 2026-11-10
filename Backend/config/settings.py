@@ -2,6 +2,7 @@
 Django settings for config project.
 """
 
+import sys
 from datetime import timedelta
 from pathlib import Path
 
@@ -46,6 +47,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
+    "core",
     "accounts",
     "branches",
     "requests_app",
@@ -146,9 +148,52 @@ REST_FRAMEWORK = {
     "COERCE_DECIMAL_TO_STRING": False,
     # Rate limits for the anonymous endpoints (request submission, password
     # reset). nginx sets X-Forwarded-For, so one proxy hop is trusted.
-    "DEFAULT_THROTTLE_RATES": {"submit": "120/hour", "password_reset": "10/hour"},
+    "DEFAULT_THROTTLE_RATES": {
+        "submit": "120/hour",
+        "password_reset": "10/hour",
+        "login": "30/hour",
+        "upload": "60/hour",
+        "analytics": "600/hour",
+    },
     "NUM_PROXIES": env.int("NUM_PROXIES", default=0 if DEBUG else 1),
 }
+
+# Public lookups (status check and lost reference): this many attempts per
+# address within LOOKUP_WINDOW_SECONDS; the next one is refused (B11.1).
+LOOKUP_RATE_LIMIT = env.int("LOOKUP_RATE_LIMIT", default=10)
+LOOKUP_WINDOW_SECONDS = env.int("LOOKUP_WINDOW_SECONDS", default=600)
+
+# Admins and staff must pass a second sign-in factor (time-based codes). On by
+# default in production; local development can leave it off.
+# The test suite turns it on per test where it is being tested.
+TESTING = len(sys.argv) > 1 and sys.argv[1] == "test"
+REQUIRE_MFA = env.bool("REQUIRE_MFA", default=not DEBUG) and not TESTING
+
+# Clearance proof uploads. PRIVATE_MEDIA_ROOT must never be served by the web
+# server: files are streamed only by an endpoint that checks the reader's role.
+PRIVATE_MEDIA_ROOT = Path(env("PRIVATE_MEDIA_ROOT", default=str(BASE_DIR / "private_media")))
+CLEARANCE_MAX_BYTES = 5 * 1024 * 1024
+DATA_UPLOAD_MAX_MEMORY_SIZE = 6 * 1024 * 1024
+FILE_UPLOAD_MAX_MEMORY_SIZE = 6 * 1024 * 1024
+
+# Automatic SMS to graduates (B5.2 phase 2). Any provider with an HTTP API that
+# accepts JSON {to, message} and a bearer key works; leave SMS_API_URL empty
+# and messages are logged as "not configured" instead of sent.
+SMS_API_URL = env("SMS_API_URL", default="")
+SMS_API_KEY = env("SMS_API_KEY", default="")
+SMS_SENDER_ID = env("SMS_SENDER_ID", default="MSUTRANSCR")
+
+# Optional bot check on the request form (Cloudflare Turnstile). Without a
+# secret the form relies on its honeypot field and the submission rate limit.
+TURNSTILE_SECRET = env("TURNSTILE_SECRET", default="")
+
+# Who receives error alerts (server errors and browser errors), as
+# "Name <email>, Name <email>".
+ADMINS = [
+    (part.split("<")[0].strip() or part, part.split("<")[-1].rstrip("> ").strip())
+    for part in env.list("ADMINS", default=[])
+]
+SERVER_EMAIL = env("SERVER_EMAIL", default="alerts@collectmytranscriptmsu.com")
 
 # Password-reset emails. Without SMTP settings, emails are printed to the
 # server log (journalctl in production).
@@ -241,9 +286,19 @@ if not DEBUG:
         },
         "handlers": {
             "console": {"class": "logging.StreamHandler", "formatter": "standard"},
+            # Server errors email ADMINS straight away (B7.3).
+            "mail_admins": {
+                "class": "django.utils.log.AdminEmailHandler",
+                "level": "ERROR",
+                "include_html": False,
+            },
         },
         "root": {"handlers": ["console"], "level": "INFO"},
         "loggers": {
-            "django.request": {"handlers": ["console"], "level": "ERROR", "propagate": False},
+            "django.request": {
+                "handlers": ["console", "mail_admins"],
+                "level": "ERROR",
+                "propagate": False,
+            },
         },
     }

@@ -33,6 +33,7 @@ DB_FIELDS = {
     "suburb": "Avondale",
     "fee_amount": "15.00",
     "payment_method": "cash_on_delivery",
+    "clearance_verified": True,
 }
 
 SUBMIT = {
@@ -48,6 +49,7 @@ SUBMIT = {
     "zone": "harare",
     "harare_address": "123 Main St",
     "suburb": "Avondale",
+    "consent": True,
 }
 
 
@@ -285,9 +287,16 @@ class HistoryTests(Base):
         self.assertEqual(event.from_value, "received")
         self.assertEqual(event.actor, self.admin)
 
-    def test_paid_logs_payment_event(self):
-        self.client.patch(f"/api/requests/{self.req.id}/", {"paid": True}, format="json")
-        self.assertTrue(self.req.events.filter(event_type="payment", to_value="True").exists())
+    def test_payment_logs_payment_event(self):
+        response = self.client.post(
+            f"/api/requests/{self.req.id}/payments/", {"amount": 15}, format="json"
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(self.req.events.filter(event_type="payment", to_value="15.00").exists())
+
+    def test_paid_tick_is_refused(self):
+        response = self.client.patch(f"/api/requests/{self.req.id}/", {"paid": True}, format="json")
+        self.assertEqual(response.status_code, 400)
 
     def test_history_endpoint_newest_first_admin_only(self):
         self.bulk([self.req.id], "submitted_to_msu")
@@ -327,6 +336,11 @@ LOOKUP_KEYS = {
     "zimpost",
     "driver",
     "delivered_by",
+    "amount_paid",
+    "documents",
+    "items",
+    "deliver_to",
+    "address_editable",
 }
 
 
@@ -430,11 +444,11 @@ class DeliveryEditTests(Base):
         response = self.patch(phone_number="0772222222", email="new@example.com")
         self.assertEqual(response.status_code, 200)
         self.req.refresh_from_db()
-        self.assertEqual(self.req.phone_number, "0772222222")
+        self.assertEqual(self.req.phone_number, "+263772222222")
 
     def test_non_admin_cannot_edit(self):
         self.auth(self.plain)
-        self.assertEqual(self.patch(paid=True).status_code, 403)
+        self.assertEqual(self.patch(email="x@example.com").status_code, 403)
 
 
 # ---------------------------------------------------------- B3.1 drivers
@@ -577,7 +591,13 @@ class DispatchTests(Base):
             format="json",
         )
         self.assertEqual(fail.status_code, 200)
-        self.assertEqual(fail.data["status"], "closed")
+        # Every document has a result; the batch closes with its cash check.
+        self.assertEqual(fail.data["status"], "out_for_delivery")
+        close = self.client.post(
+            f"/api/dispatch/batches/{batch['id']}/close/", {"cash_handed_in": 15}, format="json"
+        )
+        self.assertEqual(close.status_code, 200)
+        self.assertEqual(close.data["status"], "closed")
         self.ready[0].refresh_from_db()
         self.ready[1].refresh_from_db()
         self.assertEqual(self.ready[0].status, "collected")
@@ -795,6 +815,9 @@ class ListAndExportTests(Base):
                 "Paid",
                 "Status",
                 "Submitted",
+                "Documents",
+                "Amount Paid (US$)",
+                "Channel",
             ],
         )
         phone = ws.cell(row=2, column=4)

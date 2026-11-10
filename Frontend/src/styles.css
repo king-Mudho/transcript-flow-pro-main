@@ -4,139 +4,177 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Design tokens (backlog B7.1). Every colour on every page comes from this
+ * list: navy, navy 2, gold, gold tint, ink, ink 2, ink 3, line and ground,
+ * plus the six stage colours. Brand settings (B11.4) can override --navy and
+ * --gold at runtime; everything else derives from them.
+ */
 @theme inline {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Instrument Serif", ui-serif, Georgia, serif;
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-ring-offset-background: var(--background);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Corners: 8px on controls, 12px on cards. */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+
+  /* Type scale: 40, 28, 20, 16, 15, 13, 12. */
+  --text-display: 40px;
+  --text-display--line-height: 1.1;
+  --text-h1: 28px;
+  --text-h1--line-height: 1.2;
+  --text-h2: 20px;
+  --text-h2--line-height: 1.3;
+  --text-body: 16px;
+  --text-body--line-height: 1.55;
+  --text-ui: 15px;
+  --text-ui--line-height: 1.5;
+  --text-small: 13px;
+  --text-small--line-height: 1.45;
+  --text-micro: 12px;
+  --text-micro--line-height: 1.4;
+
+  --color-navy: var(--navy);
+  --color-navy-2: var(--navy-2);
   --color-gold: var(--gold);
-  --color-gold-foreground: var(--gold-foreground);
-  --color-status-submitted: var(--status-submitted);
-  --color-status-msu: var(--status-msu);
-  --color-status-frommsu: var(--status-from-msu);
-  --color-status-transit: var(--status-transit);
-  --color-status-collected: var(--status-collected);
-  --color-status-rejected: var(--status-rejected);
+  --color-gold-hover: var(--gold-hover);
+  --color-gold-tint: var(--gold-tint);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-ground: var(--ground);
+  --color-info-tint: var(--info-tint);
+  --color-info-ink: var(--info-ink);
+  --color-success: var(--success);
+  --color-success-tint: var(--success-tint);
+  --color-danger: var(--danger);
+  --color-danger-tint: var(--danger-tint);
+  --color-warn-ink: var(--warn-ink);
+  --color-whatsapp: var(--whatsapp);
+
+  /* Stage chips: dot + label. Text colours pass 4.5:1 on their tints. */
+  --color-stage-received: var(--stage-received);
+  --color-stage-received-tint: var(--stage-received-tint);
+  --color-stage-msu: var(--stage-msu);
+  --color-stage-msu-tint: var(--stage-msu-tint);
+  --color-stage-frommsu: var(--stage-frommsu);
+  --color-stage-frommsu-tint: var(--stage-frommsu-tint);
+  --color-stage-rejected: var(--stage-rejected);
+  --color-stage-rejected-tint: var(--stage-rejected-tint);
+  --color-stage-dispatched: var(--stage-dispatched);
+  --color-stage-dispatched-tint: var(--stage-dispatched-tint);
+  --color-stage-collected: var(--stage-collected);
+  --color-stage-collected-tint: var(--stage-collected-tint);
+
+  /* shadcn/ui names, mapped onto the tokens. */
+  --color-background: var(--ground);
+  --color-foreground: var(--ink);
+  --color-card: #ffffff;
+  --color-card-foreground: var(--ink);
+  --color-popover: #ffffff;
+  --color-popover-foreground: var(--ink);
+  --color-primary: var(--navy);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: var(--ground);
+  --color-secondary-foreground: var(--navy);
+  --color-muted: var(--ground);
+  --color-muted-foreground: var(--ink-3);
+  --color-accent: var(--ground);
+  --color-accent-foreground: var(--ink);
+  --color-destructive: var(--danger);
+  --color-destructive-foreground: #ffffff;
+  --color-border: var(--line);
+  --color-input: var(--line);
+  --color-ring: var(--navy);
 }
 
 :root {
-  --radius: 0.5rem;
-  /* MSU deep navy + muted gold */
-  --background: oklch(0.99 0.005 250);
-  --foreground: oklch(0.2 0.03 260);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.2 0.03 260);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.2 0.03 260);
-  --primary: oklch(0.28 0.08 260);
-  --primary-foreground: oklch(0.98 0.005 250);
-  --secondary: oklch(0.96 0.008 250);
-  --secondary-foreground: oklch(0.28 0.08 260);
-  --muted: oklch(0.96 0.008 250);
-  --muted-foreground: oklch(0.5 0.02 260);
-  --accent: oklch(0.94 0.03 85);
-  --accent-foreground: oklch(0.28 0.08 260);
-  --destructive: oklch(0.55 0.22 27);
-  --destructive-foreground: oklch(0.98 0.005 250);
-  --border: oklch(0.9 0.01 255);
-  --input: oklch(0.9 0.01 255);
-  --ring: oklch(0.28 0.08 260);
+  --navy: #0f2750;
+  --navy-2: #1b3566;
+  --gold: #d19936;
+  --gold-hover: #bf8a2c;
+  --gold-tint: #f7eedb;
+  --ink: #0e1624;
+  --ink-2: #444d5b;
+  --ink-3: #626b78;
+  --line: #e2e6ed;
+  --ground: #f5f7fa;
 
-  --gold: oklch(0.72 0.13 78);
-  --gold-foreground: oklch(0.22 0.05 260);
+  --info-tint: #e3eef9;
+  --info-ink: #1d4a7a;
+  --success: #1e7a46;
+  --success-tint: #e3f3e9;
+  --danger: #b42318;
+  --danger-tint: #fdecea;
+  --warn-ink: #6b4a0c;
+  --whatsapp: #128c4a;
 
-  --status-submitted: oklch(0.7 0.01 260);
-  --status-msu: oklch(0.65 0.14 78);
-  --status-from-msu: oklch(0.5 0.17 295);
-  --status-transit: oklch(0.55 0.15 245);
-  --status-collected: oklch(0.55 0.15 150);
-  --status-rejected: oklch(0.55 0.22 27);
-
-  --chart-1: oklch(0.28 0.08 260);
-  --chart-2: oklch(0.72 0.13 78);
-  --chart-3: oklch(0.55 0.15 245);
-  --chart-4: oklch(0.55 0.15 150);
-  --chart-5: oklch(0.55 0.22 27);
-  --sidebar: oklch(0.28 0.08 260);
-  --sidebar-foreground: oklch(0.98 0.005 250);
-  --sidebar-primary: oklch(0.72 0.13 78);
-  --sidebar-primary-foreground: oklch(0.22 0.05 260);
-  --sidebar-accent: oklch(0.34 0.07 260);
-  --sidebar-accent-foreground: oklch(0.98 0.005 250);
-  --sidebar-border: oklch(0.34 0.07 260);
-  --sidebar-ring: oklch(0.72 0.13 78);
-}
-
-.dark {
-  --background: oklch(0.18 0.03 260);
-  --foreground: oklch(0.98 0.005 250);
-  --card: oklch(0.22 0.04 260);
-  --card-foreground: oklch(0.98 0.005 250);
-  --popover: oklch(0.22 0.04 260);
-  --popover-foreground: oklch(0.98 0.005 250);
-  --primary: oklch(0.72 0.13 78);
-  --primary-foreground: oklch(0.22 0.05 260);
-  --secondary: oklch(0.28 0.05 260);
-  --secondary-foreground: oklch(0.98 0.005 250);
-  --muted: oklch(0.28 0.05 260);
-  --muted-foreground: oklch(0.7 0.02 260);
-  --accent: oklch(0.28 0.05 260);
-  --accent-foreground: oklch(0.98 0.005 250);
-  --destructive: oklch(0.7 0.19 22);
-  --destructive-foreground: oklch(0.98 0.005 250);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.72 0.13 78);
+  --stage-received: #4a5361;
+  --stage-received-tint: #eceef2;
+  --stage-msu: #8a5a00;
+  --stage-msu-tint: #fbf0d9;
+  --stage-frommsu: #5b3aa6;
+  --stage-frommsu-tint: #efe9fb;
+  --stage-rejected: #b42318;
+  --stage-rejected-tint: #fdecea;
+  --stage-dispatched: #1d5fa3;
+  --stage-dispatched-tint: #e3eef9;
+  --stage-collected: #1e7a46;
+  --stage-collected-tint: #e3f3e9;
 }
 
 @layer base {
   * {
-    border-color: var(--color-border);
+    border-color: var(--color-line);
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
   }
   body {
-    background-color: var(--color-background);
-    color: var(--color-foreground);
+    background-color: #ffffff;
+    color: var(--color-ink);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    font-size: 15px;
   }
   h1,
   h2,
   h3 {
-    letter-spacing: -0.01em;
+    letter-spacing: -0.015em;
+  }
+  /* Focus is always visible (B7.2). */
+  :focus-visible {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  .eyebrow {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-ink-3);
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
   }
 }

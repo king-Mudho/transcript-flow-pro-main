@@ -1,7 +1,7 @@
-import { Check, Phone, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import type { StatusResult } from "@/lib/api-client";
-import { formatDate, statusLabel, waDigits } from "@/lib/msu";
-import { WhatsAppContactButton } from "@/components/whatsapp-contact";
+import { formatDay, formatStep } from "@/lib/msu";
+import { cn } from "@/lib/utils";
 
 const STEPS = [
   "received",
@@ -10,124 +10,175 @@ const STEPS = [
   "dispatched",
   "collected",
 ] as const;
-
 type Step = (typeof STEPS)[number];
 
-/** Heading shown for a step, which varies with the delivery zone. */
-function stepTitle(step: Step, r: StatusResult): string {
-  const branch = r.branch?.branch_name ?? "branch";
-  if (step === "dispatched") {
-    return r.zone === "harare" ? "Out for delivery with your driver" : `Sent to Zimpost ${branch}`;
-  }
-  if (step === "collected") {
-    return r.zone === "harare" ? "Delivered to you" : `Collected at Zimpost ${branch}`;
-  }
-  return statusLabel(step);
+export function documentWord(r: Pick<StatusResult, "items">): string {
+  const types = new Set((r.items ?? []).map((i) => i.document_type));
+  const count = (r.items ?? []).reduce((n, i) => n + i.quantity, 0);
+  if (count > 1) return "documents";
+  if (types.has("degree_certificate")) return "certificate";
+  if (types.has("transcript")) return "transcript";
+  return "document";
 }
 
-/** One line on what is happening now and what comes next. */
-function currentLine(step: Step, r: StatusResult): string {
+function title(step: Step, r: StatusResult): string {
+  if (step === "received") return "Received";
+  if (step === "submitted_to_msu") return "Submitted to MSU";
+  if (step === "collected_from_msu") return "Collected from MSU";
+  if (step === "dispatched") return "Dispatched";
+  return "Collected";
+}
+
+/** Grey line under a step that has not happened yet. */
+function upcoming(step: Step, r: StatusResult): string {
+  const branch = r.branch?.branch_name ?? "your branch";
+  switch (step) {
+    case "submitted_to_msu":
+      return "We hand your request to MSU";
+    case "collected_from_msu":
+      return "We collect it once MSU releases it";
+    case "dispatched":
+      return r.zone === "harare"
+        ? "Out for delivery with your driver"
+        : `Sent to Zimpost ${branch}`;
+    case "collected":
+      return r.zone === "harare" ? "Handed to you" : `Collected at Zimpost ${branch}`;
+    default:
+      return "";
+  }
+}
+
+/** One line under the current step: what is happening now and what is next. */
+function nowLine(step: Step, r: StatusResult): string {
+  const doc = documentWord(r);
   const branch = r.branch?.branch_name ?? "your branch";
   switch (step) {
     case "received":
       return "We have your request. Next, we submit it to MSU.";
     case "submitted_to_msu":
-      return "Your request is with MSU. Next, we collect your document from MSU.";
+      return `Your request is with MSU. Next, we collect your ${doc} once it is released.`;
     case "collected_from_msu":
       return r.zone === "harare"
-        ? "We have your document. Next, it goes out with a driver."
-        : `We have your document. Next, it is sent to Zimpost ${branch}.`;
+        ? `We have your ${doc}. Next, it goes out with a driver.`
+        : `We have your ${doc}. Next, we send it to Zimpost ${branch}.`;
     case "dispatched":
-      return r.zone === "harare"
-        ? "Your document is on its way. Please keep your phone close and have the cash ready."
-        : `Your document is on its way to Zimpost ${branch}. Next, you collect it there.`;
+      if (r.zone === "harare") {
+        const first = r.driver?.full_name.split(/\s+/)[0];
+        return first ? `Out for delivery with ${first}.` : "Out for delivery with your driver.";
+      }
+      return `On its way to Zimpost ${branch}.`;
     case "collected":
-      return r.zone === "harare"
-        ? "Your document was handed to you."
-        : "Your document was collected.";
+      if (r.zone === "harare")
+        return r.delivered_by ? `Delivered by ${r.delivered_by}.` : "Handed to you.";
+      return `Collected at Zimpost ${branch}.`;
   }
 }
 
+/**
+ * Vertical progress stepper (B2.3, G08–G10). Done steps show a tick and the
+ * date reached; the current step is highlighted with a line on what is next;
+ * steps to come are grey. A rejection stops at the third step.
+ */
 export function TrackingStepper({ result }: { result: StatusResult }) {
   const rejected = result.status === "rejected";
-  // A rejection stops at the third step, in place of "Collected from MSU".
   const currentIndex = rejected ? 2 : STEPS.indexOf(result.status as Step);
   const finished = result.status === "collected";
 
   return (
-    <ol className="mt-6">
+    <ol className="mt-4" aria-label="Progress">
       {STEPS.map((step, i) => {
-        const isRejectedStep = rejected && i === 2;
-        const done = !isRejectedStep && (i < currentIndex || (finished && i === currentIndex));
-        const current = i === currentIndex && !finished;
-        const reachedAt = result.stages[isRejectedStep ? "rejected" : step];
+        const isRejected = rejected && i === 2;
+        const done = !isRejected && (i < currentIndex || (finished && i === currentIndex));
+        const current = !isRejected && i === currentIndex && !finished;
+        const future = !done && !current && !isRejected;
+        const reachedAt = result.stages[isRejected ? "rejected" : step];
         const last = i === STEPS.length - 1;
-
-        const dot = isRejectedStep
-          ? "border-status-rejected bg-status-rejected text-white"
-          : done
-            ? "border-status-collected bg-status-collected text-white"
-            : current
-              ? "border-primary bg-primary text-primary-foreground"
-              : "border-muted-foreground/30 bg-background text-muted-foreground/40";
+        const lineDone = i < currentIndex && !(rejected && i >= 1);
+        const state = isRejected ? "rejected" : done ? "done" : current ? "current" : "not started";
 
         return (
-          <li key={step} className="relative flex gap-4 pb-6 last:pb-0">
+          <li
+            key={step}
+            className="relative flex gap-4 pb-6 last:pb-0"
+            aria-current={current ? "step" : undefined}
+          >
             {!last && (
               <span
                 aria-hidden
-                className={`absolute left-[15px] top-8 h-[calc(100%-2rem)] w-0.5 ${
-                  done ? "bg-status-collected" : "bg-muted-foreground/20"
-                }`}
+                className={cn(
+                  "absolute left-[15px] top-8 h-[calc(100%-2rem)] w-0.5",
+                  lineDone ? "bg-navy" : "bg-line",
+                )}
               />
             )}
             <span
-              className={`z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-xs font-semibold ${dot}`}
+              aria-hidden
+              className={cn(
+                "z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+                isRejected && "bg-danger text-white ring-4 ring-danger-tint",
+                done && "bg-navy text-white",
+                current && "bg-gold ring-4 ring-gold-tint",
+                future && "border-2 border-line bg-white",
+              )}
             >
-              {isRejectedStep ? (
+              {isRejected ? (
                 <X className="h-4 w-4" />
               ) : done ? (
                 <Check className="h-4 w-4" />
-              ) : (
-                i + 1
-              )}
+              ) : current ? (
+                <span className="h-2.5 w-2.5 rounded-full bg-navy" />
+              ) : null}
             </span>
-            <div className="min-w-0 flex-1 pt-1">
+            <div className="min-w-0 flex-1 pt-0.5">
               <div
-                className={`text-sm font-semibold ${
-                  isRejectedStep
-                    ? "text-status-rejected"
-                    : done || current
-                      ? "text-foreground"
-                      : "text-muted-foreground/60"
-                }`}
+                className={cn(
+                  "text-[17px] font-semibold",
+                  isRejected ? "text-danger" : future ? "text-ink-3/70" : "text-ink",
+                )}
               >
-                {isRejectedStep ? "Rejected" : stepTitle(step, result)}
+                <span className="sr-only">{`Step ${i + 1}, ${state}: `}</span>
+                {isRejected ? "Rejected by MSU" : title(step, result)}
               </div>
-
-              {(done || current || isRejectedStep) && reachedAt && (
-                <div className="text-xs text-muted-foreground">{formatDate(reachedAt)}</div>
+              {!future && reachedAt && (
+                <div className="text-[14px] text-ink-3">{formatStep(reachedAt)}</div>
               )}
-
-              {current && !isRejectedStep && (
-                <p className="mt-1 text-sm text-primary">{currentLine(step, result)}</p>
-              )}
-
-              {isRejectedStep && (
-                <div className="mt-2 space-y-3 rounded-md border border-status-rejected/30 bg-status-rejected/5 p-3 text-sm">
-                  {result.status_reason && (
-                    <p className="text-status-rejected">{result.status_reason}</p>
-                  )}
-                  <WhatsAppContactButton />
+              {future && (
+                <div className="text-[14px] text-ink-3/70">
+                  {rejected ? "Not for this request" : upcoming(step, result)}
                 </div>
               )}
-
-              {step === "dispatched" && (done || current) && <DispatchDetails result={result} />}
-
-              {step === "collected" && done && result.delivered_by && (
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Delivered by {result.delivered_by}
-                </p>
+              {current && <p className="mt-1.5 text-[15px] text-ink-2">{nowLine(step, result)}</p>}
+              {step === "dispatched" &&
+                !future &&
+                result.zone === "outside_harare" &&
+                result.zimpost && (
+                  <dl className="mt-2 space-y-0.5 rounded-lg bg-ground p-3 text-[14px]">
+                    {result.branch && (
+                      <div>
+                        <dt className="inline text-ink-3">Branch: </dt>
+                        <dd className="inline font-medium">
+                          {result.branch.branch_name}, {result.branch.branch_area}
+                        </dd>
+                      </div>
+                    )}
+                    {result.zimpost.dispatched_at && (
+                      <div>
+                        <dt className="inline text-ink-3">Sent on: </dt>
+                        <dd className="inline font-medium">
+                          {formatDay(result.zimpost.dispatched_at)}
+                        </dd>
+                      </div>
+                    )}
+                    <div>
+                      <dt className="inline text-ink-3">Zimpost tracking number: </dt>
+                      <dd className="inline font-medium">
+                        {result.zimpost.tracking_number ?? "Not given"}
+                      </dd>
+                    </div>
+                  </dl>
+                )}
+              {step === "collected" && done && result.zone === "harare" && result.delivered_by && (
+                <p className="mt-1 text-[14px] text-ink-3">Delivered by {result.delivered_by}</p>
               )}
             </div>
           </li>
@@ -137,76 +188,48 @@ export function TrackingStepper({ result }: { result: StatusResult }) {
   );
 }
 
-function DispatchDetails({ result }: { result: StatusResult }) {
-  if (result.zone === "harare") {
-    if (result.driver) {
-      const d = result.driver;
-      return (
-        <div className="mt-3 rounded-md border bg-muted/30 p-3 text-sm">
-          <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Your driver
-          </div>
-          <div className="flex items-start gap-3">
-            {d.photo_url && (
-              <img
-                src={d.photo_url}
-                alt=""
-                className="h-14 w-14 shrink-0 rounded-full object-cover"
-              />
-            )}
-            <div className="min-w-0 space-y-0.5">
-              <div className="font-semibold">{d.full_name}</div>
-              <div className="text-muted-foreground">{d.phone}</div>
-              {d.bike_registration && (
-                <div className="text-muted-foreground">Bike: {d.bike_registration}</div>
-              )}
-              <div className="text-xs text-muted-foreground">
-                Dispatched {formatDate(d.dispatched_at)}
-              </div>
-            </div>
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <a
-              href={`tel:${d.phone}`}
-              className="inline-flex items-center gap-1.5 rounded-md border bg-background px-3 py-2 text-sm font-medium hover:bg-muted"
-            >
-              <Phone className="h-4 w-4" /> Call
-            </a>
-            <a
-              href={`https://wa.me/${waDigits(d.whatsapp_phone)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-md bg-[#25D366] px-3 py-2 text-sm font-medium text-white hover:bg-[#1EBE5A]"
-            >
-              WhatsApp
-            </a>
-          </div>
-        </div>
-      );
-    }
-    return null;
+/** The summary card's "Now" line for every stage (B8.4). */
+export function summaryNow(r: StatusResult, fee: string): { lead: string; text: string } {
+  const doc = documentWord(r);
+  const branch = r.branch?.branch_name ?? "your branch";
+  switch (r.status) {
+    case "received":
+      return { lead: "Now:", text: "we have your request. Next, we submit it to MSU." };
+    case "submitted_to_msu":
+      return {
+        lead: "Now:",
+        text: `your request is with MSU. Next, we collect your ${doc} once it is released.`,
+      };
+    case "collected_from_msu":
+      return r.zone === "harare"
+        ? { lead: "Now:", text: `we have your ${doc}. Next, it goes out with a driver.` }
+        : {
+            lead: "Now:",
+            text: r.paid
+              ? `we have your ${doc}. Next, we send it to Zimpost ${branch}.`
+              : `we have your ${doc} at our Harare hub. Pay the ${fee} deposit and we send it to Zimpost ${branch}.`,
+          };
+    case "dispatched":
+      return r.zone === "harare"
+        ? {
+            lead: "On the way.",
+            text: r.paid
+              ? "Your driver will call when close."
+              : `Have ${fee} ready in cash for your driver.`,
+          }
+        : {
+            lead: "On the way.",
+            text: `Your ${doc} is going to Zimpost ${branch}. Collect it there once it arrives.`,
+          };
+    case "collected":
+      return {
+        lead: "Done.",
+        text:
+          r.zone === "harare"
+            ? `Your ${doc} was handed to you.`
+            : `Your ${doc} was collected at Zimpost ${branch}.`,
+      };
+    default:
+      return { lead: "", text: "" };
   }
-
-  return (
-    <dl className="mt-3 grid gap-1 rounded-md border bg-muted/30 p-3 text-sm">
-      {result.branch && (
-        <Line k="Branch" v={`${result.branch.branch_name} — ${result.branch.branch_area}`} />
-      )}
-      {result.zimpost?.dispatched_at && (
-        <Line k="Sent on" v={formatDate(result.zimpost.dispatched_at).split(",")[0]} />
-      )}
-      {result.zimpost?.tracking_number && (
-        <Line k="Tracking number" v={result.zimpost.tracking_number} />
-      )}
-    </dl>
-  );
-}
-
-function Line({ k, v }: { k: string; v: string }) {
-  return (
-    <div className="flex justify-between gap-3">
-      <dt className="text-muted-foreground">{k}</dt>
-      <dd className="font-medium">{v}</dd>
-    </div>
-  );
 }

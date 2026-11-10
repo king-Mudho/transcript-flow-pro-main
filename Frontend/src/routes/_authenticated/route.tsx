@@ -5,29 +5,28 @@ import { apiClient } from "@/lib/api-client";
  * Layout route wrapping every admin page.
  *
  * IMPORTANT: this guard is a user-experience convenience, not a security
- * boundary. It runs in the browser and can be bypassed by anyone willing to
- * edit their own JavaScript. The real gate is the `IsAdmin` permission class on
- * each Django endpoint — without it, this check would be worth nothing. Its
- * only job here is to avoid rendering a dashboard whose every request would
- * come back 403.
+ * boundary. The real gate is the permission class on each Django endpoint.
+ * Its job is to send each person to the workspace they can use:
  *
- * `ssr: false` because the check depends on a token held in localStorage, which
- * the server cannot see.
+ *   signed out                          → /auth
+ *   second factor required, not set up  → /security (enrolment)
+ *   MSU staff only                      → /msu
+ *   no team role                        → /no-access
+ *
+ * `ssr: false` because the check depends on a token held in localStorage.
  */
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async () => {
-    // me() resolves to null rather than throwing on any failure, so a network
-    // blip becomes a redirect to sign-in instead of an error boundary.
     const user = await apiClient.me();
-
-    // Signed out: redirect silently. Arriving at /auth is the expected outcome
-    // here, not something worth interrupting the user about.
     if (!user) throw redirect({ to: "/auth" });
 
-    // Signed in but not an admin: sign them out and show a plain "No access"
-    // page, so a successful sign-in never looks like it silently failed.
-    if (!user.is_admin) {
+    if (user.mfa_required && !user.mfa_verified) {
+      throw redirect({ to: "/security" });
+    }
+
+    if (!user.is_team) {
+      if (user.is_msu) throw redirect({ to: "/msu" });
       await apiClient.logout().catch(() => undefined);
       throw redirect({ to: "/no-access" });
     }

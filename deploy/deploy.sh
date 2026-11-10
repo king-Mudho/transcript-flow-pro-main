@@ -107,7 +107,13 @@ log "Building the frontend (this is the memory-hungry step)"
 log "Installing systemd units"
 install -m 644 "$APP_DIR/deploy/systemd/msu-backend.service"  /etc/systemd/system/
 install -m 644 "$APP_DIR/deploy/systemd/msu-frontend.service" /etc/systemd/system/
+# Daily data retention and nightly backups (B11.2, B11.3).
+for unit in msu-retention.service msu-retention.timer msu-backup.service msu-backup.timer; do
+    install -m 644 "$APP_DIR/deploy/systemd/$unit" /etc/systemd/system/
+done
+install -d -o "$APP_USER" -g "$APP_USER" -m 700 "$APP_DIR/backups" "$BACKEND/private_media"
 systemctl daemon-reload
+systemctl enable --now msu-retention.timer msu-backup.timer >/dev/null 2>&1 || true
 
 log "Restarting services"
 systemctl enable msu-backend msu-frontend >/dev/null 2>&1 || true

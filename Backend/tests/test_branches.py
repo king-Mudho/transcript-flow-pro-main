@@ -43,7 +43,9 @@ class BranchTests(APITestCase):
         self._auth(self.admin_user)
         response = self.client.get("/api/branches/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)
+        names = {b["branch_name"] for b in response.data}
+        # Two made here, plus the seeded national list; inactive ones included.
+        self.assertTrue({"Harare Main PO", "Old Branch"} <= names)
 
     def test_admin_can_create_update_delete_branch(self):
         self._auth(self.admin_user)

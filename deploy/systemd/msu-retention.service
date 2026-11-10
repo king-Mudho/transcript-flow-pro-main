@@ -1,0 +1,15 @@
+# Data retention (backlog B11.2): anonymises closed requests older than the
+# retention period set in Settings, and removes clearance uploads that were
+# never attached to a request. Writes one audit-log entry per run.
+[Unit]
+Description=MSU Transcript Collection - data retention
+After=postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=oneshot
+User=msu
+Group=msu
+WorkingDirectory=/srv/msu/Backend
+EnvironmentFile=/srv/msu/Backend/.env
+ExecStart=/srv/msu/Backend/venv/bin/python manage.py apply_retention

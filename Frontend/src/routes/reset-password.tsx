@@ -51,10 +51,13 @@ function ResetPasswordPage() {
           <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary text-primary-foreground">
             <GraduationCap className="h-6 w-6" />
           </div>
-          <span className="font-semibold">MSU Transcript · Admin</span>
+          <span className="font-semibold">MSU Transcript · Staff</span>
         </div>
         <form onSubmit={submit} className="space-y-4 rounded-lg border bg-card p-6 shadow-sm">
-          <h1 className="text-lg font-semibold">Choose a new password</h1>
+          <h1 className="text-lg font-semibold">Choose your password</h1>
+          <p className="text-xs text-muted-foreground">
+            At least 8 characters, not only numbers, and not a common password.
+          </p>
           <div>
             <Label>New password</Label>
             <Input

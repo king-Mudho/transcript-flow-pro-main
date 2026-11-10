@@ -1,0 +1,12 @@
+# Public pages only. The staff workspace and MSU portal are not for search engines.
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /msu
+Disallow: /auth
+Disallow: /security
+Disallow: /reset-password
+Disallow: /no-access
+Disallow: /api/
+
+Sitemap: https://collectmytranscriptmsu.com/sitemap.xml

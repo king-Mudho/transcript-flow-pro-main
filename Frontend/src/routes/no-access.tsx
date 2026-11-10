@@ -12,7 +12,8 @@ function NoAccess() {
       <div className="max-w-sm rounded-lg border bg-card p-8 text-center shadow-sm">
         <h1 className="text-xl font-semibold">No access</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          This account is not an administrator, and has been signed out.
+          This account has no role in the workspace, or the MSU staff portal is switched off. You
+          have been signed out. Ask an admin to check your access.
         </p>
         <Button asChild className="mt-6">
           <Link to="/auth">Back to sign in</Link>

@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Loader2 } from "lucide-react";
 import { apiClient, type BulkResult, type RequestFilters } from "@/lib/api-client";
 import { isBackMove, statusLabel } from "@/lib/msu";
 import { Button } from "@/components/ui/button";
@@ -6,18 +8,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Note } from "@/components/ds";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
 
-export type MoveTarget = { ids: string[] } | { filters: RequestFilters };
+export type MoveTarget = { ids: string[] } | { filters: Partial<RequestFilters> };
 
 /**
- * Confirmation step for every status change, single or bulk.
- *
- * Asks for whatever the target status needs: one reason for a rejection, a
- * dispatch date and optional tracking number for Zimpost dispatches, and a note
- * (needed by the server when stepping back a stage). Applies the move only
- * where it is allowed and lists the requests it had to skip.
+ * Confirmation for every status change, single or bulk (B2.1). Asks for what
+ * the move needs: a reason to reject, a dispatch date and tracking number for
+ * Zimpost, a note to step back or to override unverified clearance. Applies
+ * the move only where it is allowed and lists what it skipped. A move to
+ * Submitted to MSU reports the hand-in list it created (B9.4).
  */
 export function StatusMoveDialog({
   open,
@@ -25,6 +26,7 @@ export function StatusMoveDialog({
   count,
   status,
   currentStatus,
+  needsOverride,
   onClose,
   onDone,
 }: {
@@ -32,11 +34,13 @@ export function StatusMoveDialog({
   target: MoveTarget;
   count: number;
   status: string;
-  /** Known for a single request; lets the dialog ask for a note on a back-step. */
   currentStatus?: string;
+  /** Known for a single request whose clearance is not verified. */
+  needsOverride?: boolean;
   onClose: () => void;
-  onDone: () => void;
+  onDone: (result: BulkResult) => void;
 }) {
+  const queryClient = useQueryClient();
   const [reason, setReason] = useState("");
   const [note, setNote] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -56,11 +60,17 @@ export function StatusMoveDialog({
 
   const rejecting = status === "rejected";
   const dispatching = status === "dispatched";
+  const submitting =
+    status === "submitted_to_msu" && (!currentStatus || currentStatus === "received");
   const backStep = !!currentStatus && isBackMove(currentStatus, status);
+  const noteRequired = backStep || (submitting && !!needsOverride);
 
   async function apply() {
     if (rejecting && !reason.trim()) return toast.error("A rejection needs a reason");
-    if (backStep && !note.trim()) return toast.error("Say why you are stepping back");
+    if (noteRequired && !note.trim())
+      return toast.error(
+        backStep ? "Say why you are stepping back" : "Add a note to override the clearance check",
+      );
     setBusy(true);
     try {
       const res = await apiClient.bulkUpdateStatus(target, status, {
@@ -69,9 +79,13 @@ export function StatusMoveDialog({
         dispatched_at: dispatching ? date : undefined,
         zimpost_tracking_number: dispatching ? tracking.trim() || undefined : undefined,
       });
-      onDone();
+      queryClient.invalidateQueries({ queryKey: ["sidebar-counts"] });
+      onDone(res);
       if (res.skipped.length === 0) {
-        toast.success(`Moved ${res.moved} request(s) to ${statusLabel(status)}`);
+        toast.success(
+          `Moved ${res.moved} request${res.moved === 1 ? "" : "s"} to ${statusLabel(status)}` +
+            (res.handin_list ? ` · hand-in list ${res.handin_list.number}` : ""),
+        );
         onClose();
       } else {
         setResult(res);
@@ -96,11 +110,16 @@ export function StatusMoveDialog({
 
         {result ? (
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">These were left as they were:</p>
-            <ul className="max-h-60 space-y-1 overflow-y-auto rounded-md border p-3 text-sm">
+            {result.handin_list && (
+              <Note tone="success">
+                Hand-in list {result.handin_list.number} was created for the requests that moved.
+              </Note>
+            )}
+            <p className="text-[14px] text-ink-3">These were left as they were:</p>
+            <ul className="max-h-60 space-y-1 overflow-y-auto rounded-lg border border-line p-3 text-[14px]">
               {result.skipped.map((s) => (
                 <li key={s.reference_number}>
-                  <span className="font-mono text-xs">{s.reference_number}</span> — {s.reason}
+                  <span className="font-mono text-[12px]">{s.reference_number}</span> — {s.reason}
                 </li>
               ))}
             </ul>
@@ -110,26 +129,34 @@ export function StatusMoveDialog({
           </div>
         ) : (
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Only requests that may move to this stage will change. The rest are skipped and listed
-              afterwards.
-            </p>
+            {count > 1 && (
+              <p className="text-[14px] text-ink-3">
+                Only requests allowed to move to this stage will change. The rest are skipped and
+                listed afterwards.
+              </p>
+            )}
+            {submitting && (
+              <Note tone="info">
+                The requests that move go on one new hand-in list for MSU to sign. Requests whose
+                clearance is not verified are skipped unless you add a note to override.
+              </Note>
+            )}
             {rejecting && (
               <div>
-                <Label>Reason for rejection (shown to the graduate)</Label>
+                <Label>Reason (shown to the graduate)</Label>
                 <Textarea
                   className="mt-1.5"
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
-                  placeholder="e.g. Library fines still outstanding"
+                  placeholder="e.g. Library clearance not approved on the student portal"
                 />
               </div>
             )}
             {dispatching && (
-              <div className="space-y-3 rounded-md border bg-muted/30 p-3">
-                <p className="text-xs text-muted-foreground">
-                  For requests outside Harare (sent by Zimpost). Harare requests are dispatched
-                  through a batch on the Dispatch page.
+              <div className="space-y-3 rounded-lg border border-line bg-ground p-3">
+                <p className="text-[13px] text-ink-3">
+                  For requests outside Harare, sent by Zimpost. Harare requests are dispatched in a
+                  batch on the Dispatch page.
                 </p>
                 <div>
                   <Label>Dispatch date</Label>
@@ -154,7 +181,11 @@ export function StatusMoveDialog({
               <Label>
                 {backStep
                   ? "Why are you stepping back? (required)"
-                  : "Note (needed when stepping back a stage)"}
+                  : submitting && needsOverride
+                    ? "Clearance is not verified. Note for the override (required)"
+                    : submitting
+                      ? "Note (needed to override unverified clearance)"
+                      : "Note (optional)"}
               </Label>
               <Input className="mt-1.5" value={note} onChange={(e) => setNote(e.target.value)} />
             </div>
@@ -162,8 +193,8 @@ export function StatusMoveDialog({
               <Button variant="ghost" onClick={onClose}>
                 Cancel
               </Button>
-              <Button onClick={apply} disabled={busy}>
-                {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Confirm
+              <Button onClick={apply} disabled={busy} variant={rejecting ? "danger" : "navy"}>
+                {busy && <Loader2 className="animate-spin" />} Confirm
               </Button>
             </div>
           </div>

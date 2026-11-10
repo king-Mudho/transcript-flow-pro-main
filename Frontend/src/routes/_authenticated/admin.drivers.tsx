@@ -1,149 +1,122 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { apiClient, type Driver } from "@/lib/api-client";
-import { AdminShell } from "@/components/admin-shell";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { Pencil, Plus } from "lucide-react";
+import { AdminShell, useCurrentUser } from "@/components/admin-shell";
+import { Card, Empty, Spinner, Switch, Tag } from "@/components/ds";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { apiClient, type Driver } from "@/lib/api-client";
+import { formatPhone, initials } from "@/lib/msu";
 import { toast } from "sonner";
-import { Loader2, Plus } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/drivers")({
-  head: () => ({ meta: [{ title: "Admin — Drivers" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({
+    meta: [{ title: "Drivers — MSU Transcript admin" }, { name: "robots", content: "noindex" }],
+  }),
   component: DriversPage,
 });
 
-type Form = {
-  full_name: string;
-  phone: string;
-  whatsapp_phone: string;
-  bike_registration: string;
-  photo_url: string;
-  notes: string;
-  active: boolean;
-};
-
-const EMPTY: Form = {
-  full_name: "",
-  phone: "",
-  whatsapp_phone: "",
-  bike_registration: "",
-  photo_url: "",
-  notes: "",
-  active: true,
+const STATE = {
+  free: { label: "Free", tone: "success" as const },
+  batch_out: { label: "Batch out", tone: "gold" as const },
+  off_today: { label: "Off today", tone: "neutral" as const },
 };
 
 function DriversPage() {
-  const [drivers, setDrivers] = useState<Driver[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState<Driver | "new" | null>(null);
+  const { data: user } = useCurrentUser();
+  const { data: drivers, refetch } = useQuery({
+    queryKey: ["drivers"],
+    queryFn: () => apiClient.listDrivers(),
+  });
+  const [editing, setEditing] = useState<Partial<Driver> | null>(null);
+  const isAdmin = !!user?.is_admin;
 
-  async function load() {
-    setLoading(true);
+  async function setAvailable(d: Driver, available: boolean) {
     try {
-      setDrivers(await apiClient.listDrivers());
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to load drivers");
-    }
-    setLoading(false);
-  }
-
-  useEffect(() => {
-    load();
-  }, []);
-
-  async function toggleActive(d: Driver) {
-    try {
-      await apiClient.saveDriver({ active: !d.active }, d.id);
-      await load();
+      await apiClient.setDriverAvailable(d.id, available);
+      refetch();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Update failed");
     }
   }
 
   return (
-    <AdminShell>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Drivers</h1>
-          <p className="text-sm text-muted-foreground">
-            Drivers carry Harare deliveries. Inactive drivers cannot be given a new batch.
-          </p>
+    <AdminShell
+      title="Drivers"
+      actions={
+        isAdmin && (
+          <Button onClick={() => setEditing({ active: true })}>
+            <Plus /> Add driver
+          </Button>
+        )
+      }
+    >
+      <p className="mb-4 text-[13px] text-ink-3">
+        Switch off <strong>Available today</strong> for a driver who is off, so they cannot be
+        picked for a batch. It switches back on by itself tomorrow.
+      </p>
+      {!drivers ? (
+        <div className="flex justify-center py-16 text-ink-3">
+          <Spinner />
         </div>
-        <Button onClick={() => setEditing("new")}>
-          <Plus className="mr-2 h-4 w-4" /> Add driver
-        </Button>
-      </div>
-
-      <div className="overflow-x-auto rounded-lg border bg-card">
-        {loading ? (
-          <div className="flex items-center justify-center py-16 text-muted-foreground">
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading…
-          </div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>WhatsApp</TableHead>
-                <TableHead>Bike</TableHead>
-                <TableHead>Active</TableHead>
-                <TableHead className="w-24" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {drivers.map((d) => (
-                <TableRow key={d.id}>
-                  <TableCell className="font-medium">{d.full_name}</TableCell>
-                  <TableCell>{d.phone}</TableCell>
-                  <TableCell>{d.whatsapp_phone}</TableCell>
-                  <TableCell>{d.bike_registration || "—"}</TableCell>
-                  <TableCell>
-                    <Checkbox checked={d.active} onCheckedChange={() => toggleActive(d)} />
-                  </TableCell>
-                  <TableCell>
-                    <Button size="sm" variant="outline" onClick={() => setEditing(d)}>
-                      Edit
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {drivers.length === 0 && (
-                <TableRow>
-                  <TableCell
-                    colSpan={6}
-                    className="py-12 text-center text-sm text-muted-foreground"
+      ) : drivers.length === 0 ? (
+        <Card>
+          <Empty>No drivers yet.{isAdmin ? " Add the first one." : ""}</Empty>
+        </Card>
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2">
+          {drivers.map((d) => (
+            <Card key={d.id} className={d.active ? "p-4" : "p-4 opacity-60"}>
+              <div className="flex items-start gap-3">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gold-tint font-bold text-navy">
+                  {initials(d.full_name)}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[15px] font-semibold">{d.full_name}</span>
+                    {d.active ? (
+                      <Tag tone={STATE[d.state].tone}>{STATE[d.state].label}</Tag>
+                    ) : (
+                      <Tag>Inactive</Tag>
+                    )}
+                  </div>
+                  <div className="text-[13px] text-ink-3">
+                    {formatPhone(d.phone)}
+                    {d.bike_registration && ` · Bike ${d.bike_registration}`}
+                  </div>
+                  {d.notes && <div className="mt-1 text-[12px] text-ink-2">{d.notes}</div>}
+                </div>
+                {isAdmin && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Edit ${d.full_name}`}
+                    onClick={() => setEditing(d)}
                   >
-                    No drivers yet.
-                  </TableCell>
-                </TableRow>
+                    <Pencil />
+                  </Button>
+                )}
+              </div>
+              {d.active && (
+                <label className="mt-3 flex items-center justify-between rounded-lg bg-ground px-3 py-2 text-[13px] font-medium">
+                  Available today
+                  <Switch
+                    label={`${d.full_name} available today`}
+                    checked={!d.off_today}
+                    onChange={(v) => setAvailable(d, v)}
+                  />
+                </label>
               )}
-            </TableBody>
-          </Table>
-        )}
-      </div>
-
+            </Card>
+          ))}
+        </div>
+      )}
       {editing && (
-        <DriverDialog
-          driver={editing === "new" ? null : editing}
-          onClose={() => setEditing(null)}
-          onSaved={async () => {
-            setEditing(null);
-            await load();
-          }}
-        />
+        <DriverDialog driver={editing} onClose={() => setEditing(null)} onSaved={refetch} />
       )}
     </AdminShell>
   );
@@ -154,74 +127,85 @@ function DriverDialog({
   onClose,
   onSaved,
 }: {
-  driver: Driver | null;
+  driver: Partial<Driver>;
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [form, setForm] = useState<Form>(
-    driver
-      ? {
-          full_name: driver.full_name,
-          phone: driver.phone,
-          whatsapp_phone: driver.whatsapp_phone,
-          bike_registration: driver.bike_registration,
-          photo_url: driver.photo_url,
-          notes: driver.notes,
-          active: driver.active,
-        }
-      : EMPTY,
-  );
-  const [saving, setSaving] = useState(false);
-  const set = (patch: Partial<Form>) => setForm((f) => ({ ...f, ...patch }));
+  const [form, setForm] = useState({
+    full_name: driver.full_name ?? "",
+    phone: driver.phone ?? "",
+    whatsapp_phone:
+      driver.whatsapp_phone && driver.whatsapp_phone !== driver.phone ? driver.whatsapp_phone : "",
+    bike_registration: driver.bike_registration ?? "",
+    photo_url: driver.photo_url ?? "",
+    notes: driver.notes ?? "",
+    active: driver.active ?? true,
+  });
+  const [busy, setBusy] = useState(false);
+  const set = (k: keyof typeof form, v: string | boolean) => setForm((f) => ({ ...f, [k]: v }));
 
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
+  async function save() {
+    setBusy(true);
     try {
-      await apiClient.saveDriver(form, driver?.id);
-      toast.success(driver ? "Driver updated" : "Driver added");
+      await apiClient.saveDriver(form, driver.id);
+      toast.success("Driver saved");
       onSaved();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not save driver");
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save");
     } finally {
-      setSaving(false);
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    if (
+      !driver.id ||
+      !window.confirm(
+        `Delete ${driver.full_name}? Drivers who have carried a batch can only be deactivated.`,
+      )
+    )
+      return;
+    try {
+      await apiClient.deleteDriver(driver.id);
+      onSaved();
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not delete");
     }
   }
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{driver ? "Edit driver" : "Add driver"}</DialogTitle>
+          <DialogTitle>{driver.id ? "Edit driver" : "Add driver"}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={save} className="space-y-4">
+        <div className="grid gap-3">
           <div>
             <Label>Full name</Label>
             <Input
               className="mt-1.5"
               value={form.full_name}
-              onChange={(e) => set({ full_name: e.target.value })}
-              required
+              onChange={(e) => set("full_name", e.target.value)}
             />
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Phone</Label>
               <Input
                 className="mt-1.5"
                 value={form.phone}
-                onChange={(e) => set({ phone: e.target.value })}
-                placeholder="0771234567"
-                required
+                onChange={(e) => set("phone", e.target.value)}
+                placeholder="077 123 4567"
               />
-              <p className="mt-1 text-xs text-muted-foreground">Saved as +263…</p>
             </div>
             <div>
               <Label>WhatsApp (if different)</Label>
               <Input
                 className="mt-1.5"
                 value={form.whatsapp_phone}
-                onChange={(e) => set({ whatsapp_phone: e.target.value })}
+                onChange={(e) => set("whatsapp_phone", e.target.value)}
               />
             </div>
           </div>
@@ -230,17 +214,16 @@ function DriverDialog({
             <Input
               className="mt-1.5"
               value={form.bike_registration}
-              onChange={(e) => set({ bike_registration: e.target.value })}
+              onChange={(e) => set("bike_registration", e.target.value)}
             />
           </div>
           <div>
             <Label>Photo link (optional)</Label>
             <Input
               className="mt-1.5"
-              type="url"
               value={form.photo_url}
-              onChange={(e) => set({ photo_url: e.target.value })}
-              placeholder="https://…"
+              onChange={(e) => set("photo_url", e.target.value)}
+              placeholder="https://"
             />
           </div>
           <div>
@@ -248,22 +231,34 @@ function DriverDialog({
             <Textarea
               className="mt-1.5"
               value={form.notes}
-              onChange={(e) => set({ notes: e.target.value })}
+              onChange={(e) => set("notes", e.target.value)}
             />
           </div>
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox checked={form.active} onCheckedChange={(v) => set({ active: v === true })} />
+          <label className="flex items-center justify-between text-[14px] font-medium">
             Active
+            <Switch label="Active" checked={form.active} onChange={(v) => set("active", v)} />
           </label>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={saving}>
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save
-            </Button>
+          <div className="flex justify-between gap-2 pt-2">
+            {driver.id ? (
+              <Button variant="ghost" className="text-danger" onClick={remove}>
+                Delete
+              </Button>
+            ) : (
+              <span />
+            )}
+            <div className="flex gap-2">
+              <Button variant="ghost" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button
+                onClick={save}
+                disabled={busy || !form.full_name.trim() || !form.phone.trim()}
+              >
+                Save
+              </Button>
+            </div>
           </div>
-        </form>
+        </div>
       </DialogContent>
     </Dialog>
   );

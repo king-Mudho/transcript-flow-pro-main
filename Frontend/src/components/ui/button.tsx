@@ -4,24 +4,36 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * One button for the graduate site and the admin workspace (B7.1).
+ *
+ * Variants: gold (the one main action per screen), navy, outline, ghost,
+ * danger and whatsapp. Sizes: `lg` is 48px for phones, `default` is 36px for
+ * the admin workspace.
+ */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg font-semibold cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow hover:bg-primary/90",
-        destructive: "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
-        outline:
-          "border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground",
-        secondary: "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
+        gold: "bg-gold text-ink hover:bg-gold-hover",
+        default: "bg-navy text-white hover:bg-navy-2",
+        navy: "bg-navy text-white hover:bg-navy-2",
+        outline: "border border-line bg-white text-ink hover:bg-ground",
+        "outline-light": "border border-white/40 bg-transparent text-white hover:bg-white/10",
+        secondary: "bg-ground text-navy hover:bg-line",
+        ghost: "text-ink-2 hover:bg-ground hover:text-ink",
+        destructive: "bg-danger text-white hover:bg-danger/90",
+        danger: "bg-danger text-white hover:bg-danger/90",
+        whatsapp: "bg-whatsapp text-white hover:bg-whatsapp/90",
+        link: "text-navy underline-offset-4 hover:underline",
       },
       size: {
-        default: "h-9 px-4 py-2",
-        sm: "h-8 rounded-md px-3 text-xs",
-        lg: "h-10 rounded-md px-8",
+        default: "h-9 px-4 text-[14px]",
+        sm: "h-8 px-3 text-[13px]",
+        lg: "h-12 px-6 text-[16px]",
         icon: "h-9 w-9",
+        "icon-lg": "h-12 w-12",
       },
     },
     defaultVariants: {
@@ -46,4 +58,5 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 );
 Button.displayName = "Button";
 
-export { Button };
+// eslint-disable-next-line react-refresh/only-export-components
+export { Button, buttonVariants };

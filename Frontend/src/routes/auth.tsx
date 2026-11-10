@@ -1,17 +1,19 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { apiClient } from "@/lib/api-client";
+import { z } from "zod";
+import { Loader2 } from "lucide-react";
+import { apiClient, OtpRequiredError } from "@/lib/api-client";
+import { homeFor } from "@/lib/auth-home";
+import { Card, Field, Note, TextInput } from "@/components/ds";
+import { BrandMark } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { GraduationCap, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
+  validateSearch: z.object({ idle: z.boolean().optional().catch(undefined) }),
   head: () => ({
     meta: [
-      { title: "Admin Sign In — MSU Transcript Collection" },
-      { name: "description", content: "Sign in to the MSU transcript admin dashboard." },
+      { title: "Staff sign in — MSU Transcript Collection" },
       { name: "robots", content: "noindex" },
     ],
   }),
@@ -20,14 +22,18 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const navigate = useNavigate();
+  const { idle } = Route.useSearch();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [otp, setOtp] = useState("");
+  const [keep, setKeep] = useState(false);
+  const [needOtp, setNeedOtp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [forgot, setForgot] = useState(false);
 
   useEffect(() => {
-    apiClient.me().then((user) => {
-      if (user?.is_admin) navigate({ to: "/admin" });
+    apiClient.me().then(async (user) => {
+      if (user && (user.is_team || user.is_msu)) navigate({ to: await homeFor() });
     });
   }, [navigate]);
 
@@ -35,10 +41,20 @@ function AuthPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      await apiClient.login(email, password);
-      navigate({ to: "/admin" });
+      const { mfa_setup_required } = await apiClient.login(
+        email.trim(),
+        password,
+        needOtp ? otp : undefined,
+        keep,
+      );
+      navigate({ to: mfa_setup_required ? "/security" : await homeFor() });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Sign in failed");
+      if (err instanceof OtpRequiredError) {
+        if (needOtp) toast.error(err.message);
+        setNeedOtp(true);
+      } else {
+        toast.error(err instanceof Error ? err.message : "Sign in failed");
+      }
     } finally {
       setLoading(false);
     }
@@ -48,8 +64,7 @@ function AuthPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      await apiClient.requestPasswordReset(email);
-      // Same message whether or not the address has an account.
+      await apiClient.requestPasswordReset(email.trim());
       toast.success("If that email has an account, a reset link is on its way.");
       setForgot(false);
     } catch (err) {
@@ -60,63 +75,117 @@ function AuthPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-primary/5 p-4">
-      <div className="w-full max-w-md">
-        <Link to="/" className="mb-6 flex items-center justify-center gap-2 text-primary">
-          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <GraduationCap className="h-6 w-6" />
-          </div>
-          <span className="font-semibold">MSU Transcript · Admin</span>
+    <div className="flex min-h-screen flex-col bg-navy">
+      <div className="mx-auto w-full max-w-md px-4 pt-10">
+        <Link to="/" className="inline-block rounded-lg">
+          <BrandMark />
         </Link>
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h1 className="text-lg font-semibold">{forgot ? "Reset your password" : "Sign in"}</h1>
-          <form onSubmit={forgot ? sendReset : signIn} className="mt-4 space-y-4">
-            {forgot && (
-              <p className="text-xs text-muted-foreground">
-                Enter your admin email and we will send you a link to choose a new password.
-              </p>
+      </div>
+      <main id="main" className="mx-auto flex w-full max-w-md flex-1 items-start px-4 py-8">
+        <Card className="w-full p-6 sm:p-8">
+          <h1 className="text-[24px] font-bold">
+            {forgot ? "Reset your password" : needOtp ? "Two-step sign in" : "Staff sign in"}
+          </h1>
+          <p className="mt-1 text-[14px] text-ink-3">
+            {forgot
+              ? "We will email you a link to choose a new password."
+              : needOtp
+                ? "Enter the six-digit code from your authenticator app."
+                : "For the operations team and MSU staff."}
+          </p>
+          {idle && !forgot && (
+            <Note tone="info" className="mt-4">
+              You were signed out after {30} minutes without activity.
+            </Note>
+          )}
+          <form onSubmit={forgot ? sendReset : signIn} className="mt-6 space-y-4">
+            {!needOtp && (
+              <Field label="Email" htmlFor="email">
+                <TextInput
+                  id="email"
+                  type="email"
+                  autoComplete="username"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </Field>
             )}
-            <div>
-              <Label>Email</Label>
-              <Input
-                className="mt-1.5"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            {!forgot && (
-              <div>
-                <Label>Password</Label>
-                <Input
-                  className="mt-1.5"
+            {!forgot && !needOtp && (
+              <Field label="Password" htmlFor="password">
+                <TextInput
+                  id="password"
                   type="password"
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
-              </div>
+              </Field>
             )}
-            <Button type="submit" disabled={loading} className="w-full">
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {forgot ? "Send reset link" : "Sign in"}
+            {needOtp && (
+              <Field label="Six-digit code" htmlFor="otp">
+                <TextInput
+                  id="otp"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={7}
+                  autoFocus
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  className="text-center text-[22px] tracking-[0.3em]"
+                  required
+                />
+              </Field>
+            )}
+            {!forgot && !needOtp && (
+              <label className="flex cursor-pointer items-center gap-2.5 text-[14px]">
+                <input
+                  type="checkbox"
+                  checked={keep}
+                  onChange={(e) => setKeep(e.target.checked)}
+                  className="h-4 w-4 accent-[var(--navy)]"
+                />
+                Keep me signed in for 7 days on this device
+              </label>
+            )}
+            <Button type="submit" variant="navy" size="lg" className="w-full" disabled={loading}>
+              {loading && <Loader2 className="animate-spin" />}
+              {forgot ? "Send reset link" : needOtp ? "Verify and sign in" : "Sign in"}
             </Button>
           </form>
-          <button
-            type="button"
-            onClick={() => setForgot(!forgot)}
-            className="mt-4 w-full text-center text-xs text-muted-foreground hover:text-foreground"
-          >
-            {forgot ? "Back to sign in" : "Forgot password?"}
-          </button>
-        </div>
-        <p className="mt-4 text-center text-xs text-muted-foreground">
-          <Link to="/" className="hover:text-foreground">
-            ← Back to home
-          </Link>
-        </p>
-      </div>
+          <div className="mt-5 flex justify-between text-[14px]">
+            {needOtp ? (
+              <button
+                type="button"
+                className="text-ink-3 underline"
+                onClick={() => {
+                  setNeedOtp(false);
+                  setOtp("");
+                }}
+              >
+                Use a different account
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setForgot(!forgot)}
+                className="text-ink-3 underline"
+              >
+                {forgot ? "Back to sign in" : "Forgot password?"}
+              </button>
+            )}
+            <Link to="/" className="text-ink-3 underline">
+              Back to the website
+            </Link>
+          </div>
+          {!forgot && (
+            <p className="mt-6 border-t border-line pt-4 text-[13px] text-ink-3">
+              There is no public sign-up. An admin invites each team member from Settings.
+            </p>
+          )}
+        </Card>
+      </main>
     </div>
   );
 }

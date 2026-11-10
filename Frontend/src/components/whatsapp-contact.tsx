@@ -1,26 +1,25 @@
 /**
- * WhatsApp contact button.
+ * WhatsApp contact links. The number comes from Settings (support_whatsapp),
+ * falling back to +263 71 446 0652 until Settings load.
  *
- * The glyph is an inline SVG rather than an icon-library import: lucide-react
- * (this project's icon set) dropped brand marks, and adding a second icon
- * dependency for one logo isn't worth it. The path is the standard WhatsApp
- * mark, drawn with `currentColor` so it inherits colour like every lucide icon.
- *
- * `https://wa.me/<number>` is WhatsApp's own routing endpoint: it opens the
- * installed app on Android/iOS and falls back to WhatsApp Web on desktop, so a
- * single href covers every platform without device sniffing.
+ * `https://wa.me/<number>` opens the WhatsApp app on phones and WhatsApp Web
+ * on computers, so one link covers every platform.
  */
+import { cn } from "@/lib/utils";
+import { formatPhone, waDigits } from "@/lib/msu";
+import { useSite } from "@/lib/site";
 
-/** Number in international format, digits only — the form wa.me requires. */
-const WHATSAPP_NUMBER = "263714460652";
+const PREFILLED = "Hello, I need help with the MSU Transcript Collection service.";
 
-const PREFILLED_MESSAGE = "Hello, I need assistance with the MSU Transcript Collection Service.";
+export function useWhatsAppUrl(text = PREFILLED): { url: string; display: string } {
+  const site = useSite();
+  return {
+    url: `https://wa.me/${waDigits(site.support_whatsapp)}?text=${encodeURIComponent(text)}`,
+    display: formatPhone(site.support_whatsapp),
+  };
+}
 
-const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(PREFILLED_MESSAGE)}`;
-
-const LABEL = "Contact us on WhatsApp";
-
-function WhatsAppIcon({ className }: { className?: string }) {
+export function WhatsAppIcon({ className }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -34,72 +33,63 @@ function WhatsAppIcon({ className }: { className?: string }) {
   );
 }
 
-/**
- * Floating action button, fixed to the bottom-right of the viewport.
- *
- * Deliberately `hidden md:flex`. On wide screens the content column is centred
- * with an empty gutter, so the button floats over nothing. Below 768px the
- * content spans the full width and a bottom-right button lands directly on the
- * request wizard's "Continue" control — measured overlap was the right third of
- * that button, which would send a mis-tap to WhatsApp instead of submitting.
- * Small screens get the footer link below instead.
- *
- * Rendered from SiteFooter so it appears on the public pages (landing, request,
- * status) and nowhere else — the admin dashboard has its own shell and doesn't
- * need a support button over its table and dialogs.
- */
+/** Floating button, bottom-right, on wide screens only: on phones it would
+ *  sit over the fixed Continue bar of the request flow. */
 export function WhatsAppFloatingButton() {
+  const { url } = useWhatsAppUrl();
   return (
     <a
-      href={WHATSAPP_URL}
+      href={url}
       target="_blank"
-      // noopener stops the opened tab reaching back via window.opener.
       rel="noopener noreferrer"
-      aria-label={LABEL}
-      title={LABEL}
-      className="fixed bottom-5 right-5 z-50 hidden h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition-transform hover:scale-105 hover:bg-[#1EBE5A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#25D366] focus-visible:ring-offset-2 motion-reduce:transition-none md:flex"
+      aria-label="Contact us on WhatsApp"
+      title="Contact us on WhatsApp"
+      className="no-print fixed bottom-5 right-5 z-40 hidden h-14 w-14 items-center justify-center rounded-full bg-whatsapp text-white shadow-lg transition-transform hover:scale-105 motion-reduce:transition-none md:flex"
     >
       <WhatsAppIcon className="h-7 w-7" />
-      {/* Visible only to screen readers; the icon alone carries no text. */}
-      <span className="sr-only">{LABEL}</span>
     </a>
   );
 }
 
-/**
- * Inline contact link for the footer's contact area.
- *
- * Always rendered, at every width: it is the only WhatsApp entry point on
- * mobile (where the floating button is suppressed), and on desktop it doubles
- * as a conventional, discoverable place to look for contact details.
- */
-export function WhatsAppFooterLink() {
+/** Inline link with the number, for footers and help lines. */
+export function WhatsAppLink({ className, text }: { className?: string; text?: string }) {
+  const { url, display } = useWhatsAppUrl(text);
   return (
     <a
-      href={WHATSAPP_URL}
+      href={url}
       target="_blank"
       rel="noopener noreferrer"
-      aria-label={LABEL}
-      title={LABEL}
-      className="inline-flex items-center gap-1.5 rounded-md text-[#128C7E] transition-colors hover:text-[#0F6F63] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#25D366] focus-visible:ring-offset-2 dark:text-[#25D366]"
+      className={cn("inline-flex items-center gap-1.5 font-medium hover:underline", className)}
     >
       <WhatsAppIcon className="h-4 w-4" />
-      <span>Contact us on WhatsApp</span>
+      WhatsApp {display}
     </a>
   );
 }
 
-/** Full-width call-to-action used inside the tracking page, e.g. on a rejection. */
-export function WhatsAppContactButton() {
+/** Full-width outline button, used on tracking and confirmation pages. */
+export function WhatsAppButton({
+  label = "WhatsApp us",
+  text,
+  className,
+}: {
+  label?: string;
+  text?: string;
+  className?: string;
+}) {
+  const { url } = useWhatsAppUrl(text);
   return (
     <a
-      href={WHATSAPP_URL}
+      href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-2 rounded-md bg-[#25D366] px-4 py-2 text-sm font-medium text-white hover:bg-[#1EBE5A]"
+      className={cn(
+        "inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-line bg-white px-5 text-[16px] font-semibold text-ink hover:bg-ground",
+        className,
+      )}
     >
-      <WhatsAppIcon className="h-4 w-4" />
-      {LABEL}
+      <WhatsAppIcon className="h-4 w-4 text-whatsapp" />
+      {label}
     </a>
   );
 }

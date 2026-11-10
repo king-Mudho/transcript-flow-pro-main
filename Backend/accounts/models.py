@@ -33,6 +33,10 @@ class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
+    full_name = models.CharField(max_length=160, blank=True, default="")
+    # Second sign-in factor (time-based one-time codes, RFC 6238).
+    totp_secret = models.CharField(max_length=64, blank=True, default="")
+    mfa_enabled = models.BooleanField(default=False)
     date_joined = models.DateTimeField(auto_now_add=True)
 
     USERNAME_FIELD = "email"
@@ -43,9 +47,18 @@ class User(AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return self.email
 
+    @property
+    def display_name(self):
+        return self.full_name or self.email
+
+    def has_role(self, *roles):
+        return self.roles.filter(role__in=roles).exists()
+
 
 class Role(models.TextChoices):
     ADMIN = "admin", "Admin"
+    STAFF = "staff", "Staff"
+    MSU_STAFF = "msu_staff", "MSU staff"
 
 
 class UserRole(models.Model):
