@@ -209,8 +209,20 @@ else:
 DEFAULT_FROM_EMAIL = env(
     "DEFAULT_FROM_EMAIL", default="MSU Transcript <noreply@collectmytranscriptmsu.com>"
 )
-# Base URL used to build links in emails.
-FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:8080")
+# Public address of the site, used to build every link the server sends out:
+# password resets, team invitations, tracking links in messages and on labels.
+# The localhost default is only for local development. A deployed server must
+# set it, so refuse to start rather than email graduates and staff links to
+# http://localhost:8080 (which happened once in production).
+FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:8080").rstrip("/")
+if not DEBUG and not TESTING:
+    _host = FRONTEND_URL.split("://", 1)[-1].split("/", 1)[0].split(":", 1)[0].lower()
+    if not FRONTEND_URL.startswith("https://") or _host in ("localhost", "127.0.0.1", "[::1]"):
+        raise environ.ImproperlyConfigured(
+            "FRONTEND_URL must be the site's public https address when DEBUG is False, "
+            "for example FRONTEND_URL=https://collectmytranscriptmsu.com in Backend/.env. "
+            f"It is currently {FRONTEND_URL!r}, so emailed links would not work."
+        )
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
