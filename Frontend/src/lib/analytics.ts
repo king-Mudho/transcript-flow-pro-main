@@ -5,7 +5,8 @@
  *   Google tag ID   GTM-5PNTWPFB
  *
  * Enhanced measurement counts page views, including in-app navigation, so
- * nothing here sends page_view. Never put personal data (names, phone numbers,
+ * the only page_view sent here is the one held back until consent is given.
+ * Never put personal data (names, phone numbers,
  * emails, registration numbers, references) in event parameters.
  */
 
@@ -25,11 +26,21 @@ export const GOOGLE_TAG_SRC = `https://www.googletagmanager.com/gtm.js?id=${GOOG
  *    registration number. They are moved out of the address bar into
  *    window.__trackPrefill, which the status page reads, so they never reach
  *    GA. Links already sent by SMS, WhatsApp and printed PDFs keep working.
+ * 3. Consent: nothing is measured and no GA cookie is set until the visitor
+ *    accepts in the cookie banner. Consent Mode defaults analytics_storage
+ *    (and all advertising signals) to denied, and the opt-out flag stays on
+ *    until the stored choice is "granted", so a visitor who declines or never
+ *    answers sends nothing to Google at all.
  */
+export const CONSENT_KEY = "msu.analytics.consent";
+export const CONSENT_OPEN_EVENT = "msu:cookie-settings";
+const STAFF_PATTERN = /^\/(admin|msu|auth|security|reset-password|no-access)(\/|$)/;
+
 export const ANALYTICS_BOOT_SCRIPT = `(function(){
 var id=${JSON.stringify(GA_MEASUREMENT_ID)};
-var staff=/^\\/(admin|msu|auth|security|reset-password|no-access)(\\/|$)/;
-function gate(u){try{window['ga-disable-'+id]=staff.test(new URL(u,location.href).pathname);}catch(e){}}
+var staff=${STAFF_PATTERN.toString()};
+function consent(){try{return localStorage.getItem(${JSON.stringify(CONSENT_KEY)});}catch(e){return null;}}
+function gate(u){try{window['ga-disable-'+id]=consent()!=='granted'||staff.test(new URL(u,location.href).pathname);}catch(e){window['ga-disable-'+id]=true;}}
 try{
 if(location.pathname==='/status'&&/[?&](ref|reg)=/.test(location.search)){
 var q=new URLSearchParams(location.search);
@@ -43,8 +54,66 @@ gate(location.href);
 addEventListener('popstate',function(){gate(location.href);});
 window.dataLayer=window.dataLayer||[];
 window.gtag=function(){window.dataLayer.push(arguments);};
+window.gtag('consent','default',{analytics_storage:consent()==='granted'?'granted':'denied',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied'});
 window.gtag('js',new Date());
 })();`;
+
+export type ConsentChoice = "granted" | "denied";
+
+export function isStaffPath(path: string) {
+  return STAFF_PATTERN.test(path);
+}
+
+export function readConsent(): ConsentChoice | null {
+  try {
+    const value = window.localStorage.getItem(CONSENT_KEY);
+    return value === "granted" || value === "denied" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Remove GA's cookies (_ga, _ga_<id>) from every domain they could be on. */
+function clearGaCookies() {
+  const host = window.location.hostname;
+  const domains = ["", host, `.${host}`, `.${host.replace(/^www\./, "")}`];
+  for (const name of document.cookie.split(";").map((c) => c.split("=")[0].trim())) {
+    if (!/^_ga(_|$)/.test(name)) continue;
+    for (const domain of domains) {
+      document.cookie = `${name}=; Max-Age=0; path=/${domain ? `; domain=${domain}` : ""}`;
+    }
+  }
+}
+
+/** Record the visitor's cookie choice and apply it straight away. */
+export function saveConsent(choice: ConsentChoice) {
+  try {
+    window.localStorage.setItem(CONSENT_KEY, choice);
+  } catch {
+    // Private mode: the choice applies to this page only.
+  }
+  const granted = choice === "granted";
+  try {
+    window.gtag?.("consent", "update", { analytics_storage: granted ? "granted" : "denied" });
+  } catch {
+    // ignore
+  }
+  const flags = window as unknown as Record<string, unknown>;
+  const flag = `ga-disable-${GA_MEASUREMENT_ID}`;
+  const wasDisabled = flags[flag];
+  flags[flag] = !granted || isStaffPath(window.location.pathname);
+  if (granted && wasDisabled && !isStaffPath(window.location.pathname)) {
+    // The page view for this page was held back while there was no consent,
+    // so count it now. Later pages are counted by enhanced measurement.
+    send("page_view", { page_location: window.location.href, page_title: document.title });
+  }
+  if (!granted) clearGaCookies();
+}
+
+/** Open the cookie banner again (from the privacy page). */
+export function openCookieSettings() {
+  window.dispatchEvent(new Event(CONSENT_OPEN_EVENT));
+}
 
 declare global {
   interface Window {

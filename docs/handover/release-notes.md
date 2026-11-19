@@ -6,6 +6,7 @@
 * Events: `request_submitted` (document type, order total in USD) and `status_checked`.
 * Tracking links no longer keep the reference or registration number in the address bar, so neither reaches GA. Existing `/status?ref=...` links still work.
 * Privacy notice: new "Cookies and Google Analytics" section.
+* Cookie banner: GA measures nothing and sets no cookies until the visitor accepts. "No thanks" sends nothing to Google. The choice can be changed from the privacy notice.
 
 ## 2026-11 — Stages 4 to 11: redesign, MSU portal, sale readiness
 

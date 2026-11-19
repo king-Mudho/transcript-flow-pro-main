@@ -17,7 +17,7 @@ and the agreement below checked by someone qualified before relying on them.
 | Request history | Accountability | Team | Contact details inside it are removed with the request's |
 | Consent time and terms version | Proof of consent | Team | Indefinitely |
 | Anonymous usage counts | Improve the form | Team (totals only) | Indefinitely; contain no personal data |
-| Google Analytics (cookies, public pages only) | Understand how the site is used; count completed requests | Team; Sofala Digital's GA property; Google | Per the GA property's retention setting; no names, phone numbers, emails, reg numbers or references are sent |
+| Google Analytics (cookies, public pages only, only after the visitor accepts in the cookie banner) | Understand how the site is used; count completed requests | Team; Sofala Digital's GA property; Google | Per the GA property's retention setting; no names, phone numbers, emails, reg numbers or references are sent |
 
 ## Retention
 

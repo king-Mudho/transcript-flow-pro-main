@@ -15,6 +15,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { apiClient } from "@/lib/api-client";
 import { useBrandColours, visitId } from "@/lib/site";
 import { ANALYTICS_BOOT_SCRIPT, GOOGLE_TAG_SRC } from "@/lib/analytics";
+import { CookieBanner } from "@/components/cookie-banner";
 
 const SITE_URL =
   (import.meta.env.VITE_SITE_URL as string | undefined) ?? "https://collectmytranscriptmsu.com";
@@ -191,6 +192,7 @@ function RootComponent() {
       <Instrumentation />
       <Outlet />
       <Toaster richColors position="top-center" />
+      <CookieBanner />
     </QueryClientProvider>
   );
 }

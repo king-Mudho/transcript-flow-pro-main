@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { LegalPage } from "@/components/legal-page";
 import { useSite } from "@/lib/site";
 import { formatPhone } from "@/lib/msu";
+import { openCookieSettings } from "@/lib/analytics";
 
 export const Route = createFileRoute("/privacy")({
   head: () => ({
@@ -55,18 +56,19 @@ function Privacy() {
       <h2>Cookies and Google Analytics</h2>
       <p>
         We use Google Analytics cookies to understand how people use the site, such as which pages
-        are visited and how many requests are completed. Google Analytics does not receive your
-        name, phone number, email, registration number or reference number, and it is not used on
-        our team&apos;s pages. You can block these cookies in your browser settings or with
-        Google&apos;s{" "}
-        <a
-          href="https://tools.google.com/dlpage/gaoptout"
-          target="_blank"
-          rel="noopener noreferrer"
+        are visited and how many requests are completed. We only use them if you accept them in the
+        cookie banner; if you say no, nothing is sent to Google Analytics. Google Analytics does
+        not receive your name, phone number, email, registration number or reference number, and
+        it is not used on our team&apos;s pages. The site works the same either way.
+      </p>
+      <p>
+        <button
+          type="button"
+          onClick={openCookieSettings}
+          className="font-medium text-navy underline"
         >
-          opt-out add-on
-        </a>
-        ; the site works the same without them.
+          Change your cookie choice
+        </button>
       </p>
 
       <h2>How we use it</h2>
