@@ -14,6 +14,7 @@ import appCss from "../styles.css?url";
 import { Toaster } from "@/components/ui/sonner";
 import { apiClient } from "@/lib/api-client";
 import { useBrandColours, visitId } from "@/lib/site";
+import { ANALYTICS_BOOT_SCRIPT, GOOGLE_TAG_SRC } from "@/lib/analytics";
 
 const SITE_URL =
   (import.meta.env.VITE_SITE_URL as string | undefined) ?? "https://collectmytranscriptmsu.com";
@@ -127,6 +128,9 @@ function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <head>
+        {/* Google tag (GA4). The boot script must run before the tag loads. */}
+        <script dangerouslySetInnerHTML={{ __html: ANALYTICS_BOOT_SCRIPT }} />
+        <script async src={GOOGLE_TAG_SRC} />
         <HeadContent />
       </head>
       <body>
@@ -143,7 +147,8 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
-/** Page views (no cookies, no IP) and browser error alerts (B7.3). */
+/** First-party page views (no cookies, no IP) and browser error alerts (B7.3).
+ *  Google Analytics counts its own page views; see lib/analytics.ts. */
 function Instrumentation() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   useBrandColours();

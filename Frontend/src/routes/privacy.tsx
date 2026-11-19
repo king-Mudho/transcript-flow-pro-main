@@ -48,9 +48,26 @@ function Privacy() {
         <li>Payments: the amount, when it was paid and who received it.</li>
         <li>
           Anonymous usage counts (which pages are viewed and how many people finish the form). We do
-          not use advertising trackers and do not record your IP address with them.
+          not use advertising trackers.
         </li>
       </ul>
+
+      <h2>Cookies and Google Analytics</h2>
+      <p>
+        We use Google Analytics cookies to understand how people use the site, such as which pages
+        are visited and how many requests are completed. Google Analytics does not receive your
+        name, phone number, email, registration number or reference number, and it is not used on
+        our team&apos;s pages. You can block these cookies in your browser settings or with
+        Google&apos;s{" "}
+        <a
+          href="https://tools.google.com/dlpage/gaoptout"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          opt-out add-on
+        </a>
+        ; the site works the same without them.
+      </p>
 
       <h2>How we use it</h2>
       <p>

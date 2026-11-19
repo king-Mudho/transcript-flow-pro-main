@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { useWhatsAppUrl } from "@/components/whatsapp-contact";
 import { money, normaliseReg } from "@/lib/msu";
 import { trackStep, useSite } from "@/lib/site";
+import { setTrackPrefill } from "@/lib/analytics";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -372,10 +373,8 @@ function HeroTrackCard() {
         className="mt-5 space-y-4"
         onSubmit={(e) => {
           e.preventDefault();
-          navigate({
-            to: "/status",
-            search: { ref: ref.trim().toUpperCase(), reg: normaliseReg(reg) },
-          });
+          setTrackPrefill({ ref: ref.trim().toUpperCase(), reg: normaliseReg(reg) });
+          navigate({ to: "/status" });
         }}
       >
         <Field label="Reference number">

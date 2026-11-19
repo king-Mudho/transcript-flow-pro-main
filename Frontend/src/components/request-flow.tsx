@@ -31,6 +31,7 @@ import { Combobox, type ComboOption } from "@/components/combobox";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { trackRequestSubmitted } from "@/lib/analytics";
 import {
   DOCUMENT_TYPES,
   formatPhone,
@@ -319,7 +320,14 @@ export function RequestFlow({
       } catch {
         // ignore
       }
-      if (mode === "public") trackStep("submitted");
+      if (mode === "public") {
+        trackStep("submitted");
+        trackRequestSubmitted({
+          transcripts: d.transcripts,
+          certificates: d.certificates,
+          total: Number(result.fee_amount),
+        });
+      }
       onSubmitted({
         ...result,
         name: d.full_name.trim(),

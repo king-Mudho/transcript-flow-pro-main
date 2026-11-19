@@ -19,6 +19,7 @@ import {
 } from "@/lib/msu";
 import { confirmationPdf } from "@/lib/pdf";
 import { useSite } from "@/lib/site";
+import { takeTrackPrefill, trackStatusChecked } from "@/lib/analytics";
 import { toast } from "sonner";
 
 const searchSchema = z.object({
@@ -45,8 +46,12 @@ export const Route = createFileRoute("/status")({
 function StatusPage() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: "/status" });
-  const [ref, setRef] = useState(search.ref ?? "");
-  const [reg, setReg] = useState(search.reg ?? "");
+  // The reference and registration number never stay in the URL, so they
+  // cannot reach Google Analytics. Tracking links are moved out of the address
+  // bar before the page loads (lib/analytics.ts) and in-app links hand them
+  // over with setTrackPrefill.
+  const [ref, setRef] = useState("");
+  const [reg, setReg] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<StatusResult | null>(null);
   const [notFound, setNotFound] = useState(false);
@@ -58,6 +63,7 @@ function StatusPage() {
       const row = await apiClient.lookupStatus(r.trim().toUpperCase(), normaliseReg(g));
       setResult(row);
       setNotFound(!row);
+      if (row) trackStatusChecked();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Lookup failed");
     } finally {
@@ -66,9 +72,16 @@ function StatusPage() {
   }
 
   useEffect(() => {
-    if (search.ref) setRef(search.ref);
-    if (search.ref && search.reg) lookup(search.ref, search.reg);
-  }, [search.ref, search.reg]);
+    // Fallback to the query string only if the boot script did not run.
+    const prefill = takeTrackPrefill() ?? { ref: search.ref, reg: search.reg };
+    if (search.ref || search.reg) {
+      navigate({ search: (p) => ({ ...p, ref: undefined, reg: undefined }), replace: true });
+    }
+    if (prefill.ref) setRef(prefill.ref);
+    if (prefill.reg) setReg(prefill.reg);
+    if (prefill.ref && prefill.reg) lookup(prefill.ref, prefill.reg);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (result) {
     return (
@@ -77,7 +90,6 @@ function StatusPage() {
           type="button"
           onClick={() => {
             setResult(null);
-            navigate({ search: {} });
           }}
           className="mb-4 inline-flex h-11 items-center gap-1 rounded-lg pr-2 text-[16px] font-medium text-ink-2 hover:text-ink"
         >
@@ -98,7 +110,6 @@ function StatusPage() {
         className="mt-6 space-y-5"
         onSubmit={(e) => {
           e.preventDefault();
-          navigate({ search: { ref: ref.trim().toUpperCase(), reg: normaliseReg(reg) } });
           lookup(ref, reg);
         }}
       >
@@ -137,6 +148,12 @@ function StatusPage() {
         onFound={(found) => {
           setRef(found);
           toast.success(`Your reference is ${found}`);
+        }}
+        onTrack={(found, foundReg) => {
+          setRef(found);
+          setReg(foundReg);
+          lookup(found, foundReg);
+          window.scrollTo({ top: 0 });
         }}
         prefillReg={reg}
       />
@@ -178,10 +195,12 @@ function HelpLine() {
 function LostReference({
   open,
   onFound,
+  onTrack,
   prefillReg,
 }: {
   open: boolean;
   onFound: (ref: string) => void;
+  onTrack: (ref: string, reg: string) => void;
   prefillReg: string;
 }) {
   const [reg, setReg] = useState(prefillReg);
@@ -249,13 +268,13 @@ function LostReference({
           <Note tone="success" icon={false}>
             {found.map((f) => (
               <div key={f.reference_number}>
-                <Link
-                  to="/status"
-                  search={{ ref: f.reference_number, reg: normaliseReg(reg) }}
+                <button
+                  type="button"
+                  onClick={() => onTrack(f.reference_number, normaliseReg(reg))}
                   className="font-semibold underline"
                 >
                   {f.reference_number}
-                </Link>
+                </button>
               </div>
             ))}
             <div className="mt-1 text-[14px]">Tap a reference to track it.</div>

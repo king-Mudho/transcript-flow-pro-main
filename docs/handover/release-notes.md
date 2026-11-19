@@ -1,5 +1,12 @@
 # Release notes
 
+## 2026-11-19 — Google Analytics
+
+* GA4 through Sofala Digital's Google tag (`GTM-5PNTWPFB`, measurement ID `G-Y8SFXYVGP0`) on public pages. Staff pages (workspace, MSU portal, sign-in, password reset) are not measured.
+* Events: `request_submitted` (document type, order total in USD) and `status_checked`.
+* Tracking links no longer keep the reference or registration number in the address bar, so neither reaches GA. Existing `/status?ref=...` links still work.
+* Privacy notice: new "Cookies and Google Analytics" section.
+
 ## 2026-11 — Stages 4 to 11: redesign, MSU portal, sale readiness
 
 **Graduates**

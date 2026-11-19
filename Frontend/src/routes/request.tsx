@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { formatPhone, money } from "@/lib/msu";
 import { confirmationPdf } from "@/lib/pdf";
 import { useSite } from "@/lib/site";
+import { setTrackPrefill } from "@/lib/analytics";
 import { useWhatsAppUrl } from "@/components/whatsapp-contact";
 import { toast } from "sonner";
 
@@ -181,7 +182,10 @@ function Confirmation({ data, onNew }: { data: Submitted; onNew: () => void }) {
 
         <div className="mt-5 grid gap-3">
           <Button asChild variant="gold" size="lg">
-            <Link to="/status" search={{ ref: data.reference_number }}>
+            <Link
+              to="/status"
+              onClick={() => setTrackPrefill({ ref: data.reference_number, reg: data.reg })}
+            >
               Track this request
             </Link>
           </Button>

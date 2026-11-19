@@ -17,6 +17,7 @@ and the agreement below checked by someone qualified before relying on them.
 | Request history | Accountability | Team | Contact details inside it are removed with the request's |
 | Consent time and terms version | Proof of consent | Team | Indefinitely |
 | Anonymous usage counts | Improve the form | Team (totals only) | Indefinitely; contain no personal data |
+| Google Analytics (cookies, public pages only) | Understand how the site is used; count completed requests | Team; Sofala Digital's GA property; Google | Per the GA property's retention setting; no names, phone numbers, emails, reg numbers or references are sent |
 
 ## Retention
 
@@ -65,7 +66,8 @@ append-only history, audit log, nightly backups with an off-site copy.
 >    staff accounts are created only on MSU's written request and removed when
 >    a person leaves.
 > 6. **Retention.** As set out in this pack; changes are agreed in writing.
-> 7. **Sub-processors.** Hosting provider, SMS provider and email provider, as
+> 7. **Sub-processors.** Hosting provider, SMS provider, email provider and
+>    Google (Analytics, public pages only), as
 >    listed in writing to MSU. The Operator tells MSU before adding another.
 > 8. **Rights requests.** Each party passes the other any request it receives
 >    that concerns the other's processing, within 5 working days.
